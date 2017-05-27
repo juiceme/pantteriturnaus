@@ -39,10 +39,23 @@ mySocket.onmessage = function (event) {
     }
 
     if(receivable.type == "tournamentMainData") {
+	var tournamentMainData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
+	document.body.replaceChild(createTopButtons({type: "user"}, tournamentMainData),
+				   document.getElementById("myDiv1"));
+	document.body.replaceChild(createTournamentListView(tournamentMainData),
+				   document.getElementById("myDiv2"));
+   }
+
+    if(receivable.type == "showTournament") {
+	var tournamentData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
+	console.log("function for show is not implemented yet")
+    }
+
+    if(receivable.type == "editTournament") {
 	var tournamentData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
 	document.body.replaceChild(createTopButtons({type: "user"}, tournamentData),
 				   document.getElementById("myDiv1"));
-	document.body.replaceChild(createUserView(tournamentData),
+	document.body.replaceChild(createTournamentView(tournamentData),
 				   document.getElementById("myDiv2"));
    }
 
@@ -73,9 +86,77 @@ mySocket.onmessage = function (event) {
 }
 
 
+// ---------- Main tournament list view
+
+function createTournamentListView(tournamentMainData) {
+    var fieldset = document.createElement('fieldsetset');
+    fieldset.appendChild(document.createElement('br'));
+    fieldset.appendChild(createTournamentListTable(tournamentMainData));
+    fieldset.appendChild(document.createElement('br'));
+    fieldset.id= "myDiv2";
+    return fieldset;
+}
+
+function createTournamentListTable(tournamentMainData) {
+    var table = document.createElement('table');
+    var tableHeader = document.createElement('thead');
+    var tableBody = document.createElement('tbody');
+    var hRow0 = tableHeader.insertRow(0);    
+    var hCell0 = hRow0.insertCell();
+
+    hCell0.innerHTML = "<b>" + uiText("Tournament") + "</b>";
+    
+    tournamentMainData.tournaments.forEach(function(t) {
+	var row = document.createElement('tr');
+	var cell0 = document.createElement('td');
+	cell0.appendChild(document.createTextNode(t.name));
+	var cell1 = document.createElement('td');
+	var showButton = document.createElement('button');
+	showButton.appendChild(document.createTextNode(uiText("Tulokset")));
+	showButton.id = t.name;
+	showButton.onclick = function() { showTournament(tournamentMainData, this); }
+	cell1.appendChild(showButton);
+	var cell2 = document.createElement('td');
+	var editButton = document.createElement('button');
+	editButton.appendChild(document.createTextNode(uiText("Muokkaa")));
+	editButton.id = t.name;
+	editButton.onclick = function() { editTournament(tournamentMainData, this); }
+//	if(t.locked) { editButton.disabled = true; }
+	cell2.appendChild(editButton);
+	row.appendChild(cell0);
+	row.appendChild(cell1);
+	row.appendChild(cell2);
+	tableBody.appendChild(row);
+    });
+    table.appendChild(tableHeader);
+    table.appendChild(tableBody);
+    return table;
+}
+
+function showTournament(tournamentMainData, button) {
+
+    sendToServerEncrypted("getTournamentDataForShow", button.id);
+
+/*
+    var clientSendable = { tournament: tournamentData };
+    var encryptedSendable = Aes.Ctr.encrypt(JSON.stringify(clientSendable), sessionPassword, 128);
+    var sendable = { type: "saveTournamentData",
+		     content: encryptedSendable };
+    mySocket.send(JSON.stringify(sendable));
+*/
+
+    console.log(button.id);
+}
+
+function editTournament(tournamentMainData, button) {
+    sendToServerEncrypted("getTournamentDataForEdit", button.id);
+}
+
+
 // ---------- Main user tournament view
 
-function createUserView(tournamentData) {
+function createTournamentView(tournamentData) {
+
     var fieldset = document.createElement('fieldsetset');
     fieldset.appendChild(document.createElement('br'));
     fieldset.appendChild(createTournamentTable(tournamentData));
@@ -85,23 +166,24 @@ function createUserView(tournamentData) {
 }
 
 function createTournamentTable(tournamentData) {
-    var clientCount = 0
     var table = document.createElement('table');
     var tableHeader = document.createElement('thead');
     var tableBody = document.createElement('tbody');
-    table.id = "myTournamentTable";
-    var hRow0 = tableHeader.insertRow(0);    
-    var hCell0 = hRow0.insertCell();
-    var hCell1 = hRow0.insertCell();
-    var hCell2 = hRow0.insertCell();
-    var hCell3 = hRow0.insertCell();
+    var hRow0 = tableHeader.insertRow();    
+    var h0Cell0 = hRow0.insertCell();
+    var hRow1 = tableHeader.insertRow();
+    var h1Cell0 = hRow1.insertCell();
+    var h1Cell1 = hRow1.insertCell();
+    var h1Cell2 = hRow1.insertCell();
+    var h1Cell3 = hRow1.insertCell();
 
-    hCell0.innerHTML = "<b>" + uiText("Ottelu") + "</b>";
-    hCell1.innerHTML = "<b>" + uiText("Koti") + "</b>";
-    hCell2.innerHTML = "<b>" + uiText("Vieras") + "</b>";
-    hCell3.innerHTML = "<b>" + uiText("Tulos") + "</b>";
+    h0Cell0.innerHTML = "<b>" + uiText(tournamentData.tournament.name) + "</b>";
+    h1Cell0.innerHTML = "<b>" + uiText("Ottelu") + "</b>";
+    h1Cell1.innerHTML = "<b>" + uiText("Koti") + "</b>";
+    h1Cell2.innerHTML = "<b>" + uiText("Vieras") + "</b>";
+    h1Cell3.innerHTML = "<b>" + uiText("Tulos") + "</b>";
 
-    tournamentData.tournament.forEach(function(s) {
+    tournamentData.tournament.games.forEach(function(s) {
 	var row = document.createElement('tr');
 	var cell0 = document.createElement('td');
 	cell0.appendChild(document.createTextNode(s.round));
@@ -149,13 +231,12 @@ function createMatchStatisticsView(tournamentData, id) {
 }
 
 function createMatchStatisticsTable(tournamentData, id) {
-    var match = tournamentData.tournament.map(function(a) {
+    var match = tournamentData.tournament.games.map(function(a) {
 	    if(a.round == id) { return a; }
 	}).filter(function(s){ return s; })[0];
     var table = document.createElement('table');
     var tableHeader = document.createElement('thead');
     var tableBody = document.createElement('tbody');
-    table.id = "myMatchTable";
     var hRow0 = tableHeader.insertRow(0);    
     var hCell0 = hRow0.insertCell();
     hCell0.innerHTML = uiText("<b>" + uiText(match.home + " vs. " + match.guest) + "</b>");
@@ -187,7 +268,7 @@ function createMatchStatisticsTable(tournamentData, id) {
 }
 
 function createMatchStatisticsButtons(tournamentData, id) {
-    var match = tournamentData.tournament.map(function(a) {
+    var match = tournamentData.tournament.games.map(function(a) {
 	    if(a.round == id) { return a; }
 	}).filter(function(s){ return s; })[0];
     var fieldset = document.createElement('fieldsetset');
@@ -227,13 +308,7 @@ function saveMatchStatisticsEdit(tournamentData, match) {
 
     match.scores = newScores;
     match.result = calculateMatchScore(match);
-
-    var clientSendable = { tournament: tournamentData };
-    var encryptedSendable = Aes.Ctr.encrypt(JSON.stringify(clientSendable), sessionPassword, 128);
-    var sendable = { type: "saveTournamentData",
-		     content: encryptedSendable };
-    mySocket.send(JSON.stringify(sendable));
-
+    sendToServerEncrypted("saveTournamentData", tournamentData.tournament);
     return false;
 }
 
@@ -260,6 +335,7 @@ function createMatchEditTableRow(tournamentData, id , count, match, item, lastRo
     }).forEach(function(b) {
 	allPlayers.push(b);
     });
+
     var scoreSelector = createSelectionList(allPlayers, "sel_" + count + "_score");
     var passSelector = createSelectionList(allPlayers, "sel_" + count + "_pass");
 
