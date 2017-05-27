@@ -121,7 +121,7 @@ function createTournamentListTable(tournamentMainData) {
 	editButton.appendChild(document.createTextNode(uiText("Muokkaa")));
 	editButton.id = t.name;
 	editButton.onclick = function() { editTournament(tournamentMainData, this); }
-//	if(t.locked) { editButton.disabled = true; }
+	if(t.locked) { editButton.disabled = true; }
 	cell2.appendChild(editButton);
 	row.appendChild(cell0);
 	row.appendChild(cell1);
@@ -134,18 +134,7 @@ function createTournamentListTable(tournamentMainData) {
 }
 
 function showTournament(tournamentMainData, button) {
-
     sendToServerEncrypted("getTournamentDataForShow", button.id);
-
-/*
-    var clientSendable = { tournament: tournamentData };
-    var encryptedSendable = Aes.Ctr.encrypt(JSON.stringify(clientSendable), sessionPassword, 128);
-    var sendable = { type: "saveTournamentData",
-		     content: encryptedSendable };
-    mySocket.send(JSON.stringify(sendable));
-*/
-
-    console.log(button.id);
 }
 
 function editTournament(tournamentMainData, button) {
