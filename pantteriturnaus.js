@@ -336,10 +336,23 @@ function createHtmlresultsPage(tournamentName) {
 
     var tableBody = [];
     tournamentData.games.forEach(function(t){
-	tableBody.push("<tr><td>" + t.round + "</td><td>" + t.home + "</td><td>" + t.guest + "</td><td>" + t.time + "</td><td>" + t.result + "</td></tr>")
+	tableBody.push("<tr><td>" + t.round + "</td><td>" + t.home +
+		       "</td><td>" + t.guest + "</td><td>" + t.time +
+		       "</td><td " + getGameScoresAsTooltip(t.scores) + " >" + t.result + "</td></tr>")
     });
     
     fs.writeFileSync(tournamentData.outputFile, header + tableBody + tailer);
+}
+
+function getGameScoresAsTooltip(scores) {
+
+    return  "title = \"&#013;" + scores.map(function(s) {
+
+// "point":"team1","type":"maali","time":"13:40","scorer":{"name":"player1","number":"1"},"passer":{"name":"ppp","number":"2"}
+
+	if(s.type === "maali") { return s.time + " -- Maali: " + s.point + "; maalintekijä: " + s.scorer.name + "; syöttäjä: " + s.passer.name + "&#013;&#013;"; }
+
+    }).filter(function(f) { return f; }).toString().replace(/,/g, '') + "&#013;\"";
 }
 
 function readUserData() {
