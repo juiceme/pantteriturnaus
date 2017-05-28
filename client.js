@@ -59,6 +59,14 @@ mySocket.onmessage = function (event) {
 				   document.getElementById("myDiv2"));
    }
 
+    if(receivable.type == "editTeams") {
+	var teamData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
+	document.body.replaceChild(createTopButtons({type: "logout"}, false),
+				   document.getElementById("myDiv1"));
+	document.body.replaceChild(createEditTeamsView(teamData),
+				   document.getElementById("myDiv2"));
+    }
+
     if(receivable.type == "adminData") {
 	var adminData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
 	document.body.replaceChild(createTopButtons({type: "admin"}, false),
@@ -424,20 +432,13 @@ function getTeamPlayers(tournamentData, team) {
 
 // ---------- Team edit panel handling
 
-function editTeams(tournamentData) {
-    document.body.replaceChild(createTopButtons({type: "logout"}, false),
-			       document.getElementById("myDiv1"));
-    document.body.replaceChild(createEditTeamsView(tournamentData),
-			       document.getElementById("myDiv2"));
-}
-
-function createEditTeamsView(tournamentData) {
+function createEditTeamsView(teamData) {
     var fieldset = document.createElement("fieldset");
     var acceptButton = document.createElement('button');
     var cancelButton = document.createElement('button');
     fieldset.appendChild(document.createElement("br"));
 
-    tournamentData.teams.forEach(function(t) {
+    teamData.teams.forEach(function(t) {
 	var table = document.createElement('table');
 	var tableHeader = document.createElement('thead');
 	var tableBody = document.createElement('tbody');
@@ -446,11 +447,11 @@ function createEditTeamsView(tournamentData) {
 	hCell0.innerHTML = "<b>" + t.name + "</b>";
 	var count=1;
 	t.players.forEach(function(p) {
-	    tableBody.appendChild(createPlayerEditTableRow(count, tournamentData, t.name, p, false));
+	    tableBody.appendChild(createPlayerEditTableRow(count, teamData, t.name, p, false));
 	    count++;
 	});
 	var newPlayer = { name: "<name>", number: "<1>" };
-	tableBody.appendChild(createPlayerEditTableRow(count, tournamentData, t.name, newPlayer, true));
+	tableBody.appendChild(createPlayerEditTableRow(count, teamData, t.name, newPlayer, true));
 	table.appendChild(tableHeader);
 	table.appendChild(tableBody);
 	fieldset.appendChild(table);
@@ -459,9 +460,9 @@ function createEditTeamsView(tournamentData) {
 
     fieldset.appendChild(document.createElement('br'));
     acceptButton.appendChild(document.createTextNode(uiText("OK")));
-    acceptButton.onclick = function() { saveTeamsEdit(tournamentData); }
+    acceptButton.onclick = function() { saveTeamsEdit(teamData); }
     cancelButton.appendChild(document.createTextNode(uiText("Peruuta")));
-    cancelButton.onclick = function() { cancelTeamsEdit(tournamentData); }
+    cancelButton.onclick = function() { cancelTeamsEdit(); }
     fieldset.appendChild(acceptButton);
     fieldset.appendChild(cancelButton);
     fieldset.appendChild(document.createElement('br'));
@@ -469,10 +470,10 @@ function createEditTeamsView(tournamentData) {
     return fieldset;
 }
 
-function saveTeamsEdit(tournamentData) {
+function saveTeamsEdit(teamData) {
     var tCount = 1;
     var newTeams = [];
-    tournamentData.teams.forEach(function(t) {
+    teamData.teams.forEach(function(t) {
 	var team = {name:t.name, players:[]};
 	var pCount = 1;
 	t.players.forEach(function(p) {
@@ -485,15 +486,15 @@ function saveTeamsEdit(tournamentData) {
 	tCount++;
     });
 
-    tournamentData.teams = newTeams;
-    sendToServerEncrypted("saveTeamData", tournamentData);
+    teamData.teams = newTeams;
+    sendToServerEncrypted("saveTeamData", teamData);
 }
 
-function cancelTeamsEdit(tournamentData) {
+function cancelTeamsEdit() {
     sendToServerEncrypted("resetToMain", {});
 }
 
-function createPlayerEditTableRow(count, tournamentData, team, player, lastRow) {
+function createPlayerEditTableRow(count, teamData, team, player, lastRow) {
     var row = document.createElement('tr');
 
     var cell0 = document.createElement('td');
@@ -524,41 +525,41 @@ function createPlayerEditTableRow(count, tournamentData, team, player, lastRow) 
 	addButton.appendChild(document.createTextNode(uiText("Add new")));
 	addButton.id = count;
 	addButton.teamName = team;
-	addButton.onclick = function() { createPlayerToList(tournamentData, this); }
+	addButton.onclick = function() { createPlayerToList(teamData, this); }
 	cell3.appendChild(addButton);
     } else {
 	var deleteButton = document.createElement("button");
 	deleteButton.appendChild(document.createTextNode(uiText("Delete")));
 	deleteButton.id = count;
 	deleteButton.teamName = team;
-	deleteButton.onclick = function() { deletePlayerFromList(tournamentData, this); }
+	deleteButton.onclick = function() { deletePlayerFromList(teamData, this); }
 	cell3.appendChild(deleteButton);
     }
     row.appendChild(cell3);
     return row;
 }
 
-function createPlayerToList(tournamentData, button) {
+function createPlayerToList(teamData, button) {
     var newPlayer = { name: document.getElementById("tt_" + button.id + "_" + button.teamName + "_name").value,
 		      number: document.getElementById("tt_" + button.id + "_" + button.teamName + "_number").value };
-    var index = tournamentData.teams.map(function(e){return e.name}).indexOf(button.teamName);
+    var index = teamData.teams.map(function(e){return e.name}).indexOf(button.teamName);
     if(index < 0) { console.log("illegal value in teams!"); }
-    else { tournamentData.teams[index].players.push(newPlayer); }
+    else { teamData.teams[index].players.push(newPlayer); }
     
-    document.body.replaceChild(createEditTeamsView(tournamentData),
+    document.body.replaceChild(createEditTeamsView(teamData),
 			       document.getElementById("myDiv2"));
 
     return false;
 }
 
-function deletePlayerFromList(tournamentData, button) {
-    var index = tournamentData.teams.map(function(e){return e.name}).indexOf(button.teamName);
-    var newPlayers = tournamentData.teams[index].players.map(function(a,b){
+function deletePlayerFromList(teamData, button) {
+    var index = teamData.teams.map(function(e){return e.name}).indexOf(button.teamName);
+    var newPlayers = teamData.teams[index].players.map(function(a,b){
 	if(b != (button.id - 1)) { return a; }
     }).filter(function(s){ return s; });
-    tournamentData.teams[index].players = newPlayers;
+    teamData.teams[index].players = newPlayers;
 
-    document.body.replaceChild(createEditTeamsView(tournamentData),
+    document.body.replaceChild(createEditTeamsView(teamData),
 			       document.getElementById("myDiv2"));
     return false;
 }
@@ -987,7 +988,7 @@ function createTopButtons(mode, tournamentData) {
 	}
 	if(havePrivilige(tournamentData.priviliges, "tournament-edit")) {
 	    var tournamentButton = document.createElement("button");
-	    tournamentButton.onclick = function() { editTournaments(tournamentData); }
+	    tournamentButton.onclick = function() { editTournaments(); }
 	    tournamentButton.appendChild(document.createTextNode(uiText("Muokkaa turnausta")));
 	    buttonBox.appendChild(tournamentButton);
 	}
@@ -1006,4 +1007,9 @@ function createTopButtons(mode, tournamentData) {
 	buttonBox.appendChild(adminButton);
     }
     return buttonBox;
+}
+
+function editTeams() {
+    sendToServerEncrypted("getTeamsDataforEdit", "none");
+    return false;
 }

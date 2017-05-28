@@ -91,6 +91,8 @@ wsServer.on('request', function(request) {
 	       stateIs(cookie, "loggedIn")) { processTournamentDataShow(cookie, content); }
 	    if((type === "getTournamentDataForEdit") &&
 	       stateIs(cookie, "loggedIn")) { processTournamentDataEdit(cookie, content); }
+	    if((type === "getTeamsDataforEdit") &&
+	       stateIs(cookie, "loggedIn")) { processTeamsDataEdit(cookie, content); }
 
 	    if((type === "saveTournamentData") &&
 	       stateIs(cookie, "loggedIn")) { processSaveTournamentData(cookie, content); }
@@ -213,6 +215,18 @@ function processTournamentDataEdit(cookie, content) {
 	cookie.currentTournament = tournamentName;
     } else {
 	servicelog("user has insufficent priviliges to edit tournament");
+    }
+}
+
+function processTeamsDataEdit(cookie, content) {
+    var sendable;
+    servicelog("Client #" + cookie.count + " requests teams edit");
+    if(userHasEditTeamsPrivilige(cookie.user)) {
+	sendable = { type: "editTeams",
+		     content: { teams: datastorage.read("teams").teams } };
+	sendCipherTextToClient(cookie, sendable);
+    } else {
+	servicelog("user has insufficent priviliges to edit teams");
     }
 }
 
