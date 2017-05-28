@@ -338,12 +338,12 @@ function updateTournamentFromClient(cookie, tournament) {
     if(datastorage.write("tournaments", { tournaments: newTournaments }) === false) {
 	servicelog("Tournament database write failed");
     } else {
-	createHtmlresultsPage(myTournament.name);
+	createHtmlResultsPage(myTournament.name);
 	servicelog("Updated tournament database with new tournament data");
     }
 }
 
-function createHtmlresultsPage(tournamentName) {
+function createHtmlResultsPage(tournamentName) {
     var tournamentData = getTournamentDataByName(tournamentName);
     var header = "<!DOCTYPE html><html><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } tr:nth-child(even) { background-color: #dddddd; } </style><table><tr><th>Ottelu</th><th>Kotijoukkue</th><th>Vierasjoukkue</th><th>Aika</th><th>Tulos</th></tr>";
     var tailer = "</table></html>";
@@ -362,9 +362,15 @@ function getGameScoresAsTooltip(scores) {
 
     return  "title = \"&#013;" + scores.map(function(s) {
 
-// "point":"team1","type":"maali","time":"13:40","scorer":{"name":"player1","number":"1"},"passer":{"name":"ppp","number":"2"}
-
-	if(s.type === "maali") { return s.time + " -- Maali: " + s.point + "; maalintekijä: " + s.scorer.name + "; syöttäjä: " + s.passer.name + "&#013;&#013;"; }
+	if(s.type === "maali") {
+	    return s.time + " -- Maali: " + s.point + "; score: " + s.scorer.name + "; pass: " + s.passer.name + "&#013;&#013;";
+	}
+	if(s.type === "rankkari") {
+	    return s.time + " -- Maali: " + s.point + "; score: " + s.scorer.name + "&#013;&#013;";
+	}
+	if(s.type === "omari") {
+	    return s.time + " -- Maali: " + s.point + "&#013;&#013;";
+	}
 
     }).filter(function(f) { return f; }).toString().replace(/,/g, '') + "&#013;\"";
 }
