@@ -345,33 +345,68 @@ function updateTournamentFromClient(cookie, tournament) {
 
 function createHtmlResultsPage(tournamentName) {
     var tournamentData = getTournamentDataByName(tournamentName);
-    var header = "<!DOCTYPE html><html><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } tr:nth-child(even) { background-color: #dddddd; } </style><table><tr><th>Ottelu</th><th>Kotijoukkue</th><th>Vierasjoukkue</th><th>Aika</th><th>Tulos</th></tr>";
+    var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } tr:nth-child(even) { background-color: #dddddd; } </style><table><tr><th>Ottelu</th><th>Kotijoukkue</th><th>Vierasjoukkue</th><th>Aika</th><th>Tulos</th></tr>";
     var tailer = "</table></html>";
-
     var tableBody = [];
-    tournamentData.games.forEach(function(t){
-	tableBody.push("<tr><td>" + t.round + "</td><td>" + t.home +
-		       "</td><td>" + t.guest + "</td><td>" + t.time +
-		       "</td><td " + getGameScoresAsTooltip(t.scores) + " >" + t.result + "</td></tr>")
+
+    tournamentData.games.forEach(function(g) {
+	var resultPageLink = "-"
+	if(g.result !== "-") {
+	    resultPageLink = "<a href=\"" + tournamentData.outputFile + "_" + g.round + ".html\">" +  g.result + "</a>";
+	}
+	tableBody.push("<tr><td>" + g.round + "</td><td>" + g.home +
+		       "</td><td>" + g.guest + "</td><td>" + g.time +
+		       "</td><td " + getGameScoresAsTooltip(g.scores) + " >" + resultPageLink + "</td></tr>")
     });
     
-    fs.writeFileSync(tournamentData.outputFile, header + tableBody + tailer);
+    fs.writeFileSync(tournamentData.outputFile + ".html", header + tableBody.join().replace(/,/g, '') + tailer);
+
+    tournamentData.games.forEach(function(g) {
+	if(g.result !== "-") {
+	    createHtmlSubResultsPage(tournamentData.outputFile, g);
+	}
+    });
+}
+
+function createHtmlSubResultsPage(fileName, game) {
+      var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } </style><table><tr><th colspan=5>" + game.home + " - " + game.guest  + "</th></tr><tr><th>Aika</th><th>Piste</th><th>Tyyppi</th><th>Maalintekijä</th><th>Syöttäjä</th></tr><tr><td></td><td></td><td></td><td></td><td></td></tr>";
+
+    var tailer = "</table></html>";
+    var tableBody = [];
+
+    game.scores.forEach(function(s) {
+	var scorer = "";
+	var passer = "";
+	var row = "";
+	if(s.type === "maali") {
+	    if(s.scorer.name !== undefined) { scorer = s.scorer.name; }
+	    if(s.passer.name !== undefined) { passer = s.passer.name; }
+	    row = "Maali</td><td>" + scorer + "</td><td>" + passer;
+	}
+	if(s.type === "rankkari") {
+	    if(s.scorer.name !== undefined) { scorer = s.scorer.name; }
+	    row = "Rangaistuspotku</td><td>" + scorer + "</td><td>";
+	}
+	if(s.type === "omari") {
+	    row = "Oma Maali" + "</td><td>" + "</td><td>";
+	}
+	tableBody.push("<tr><td>" + s.time + "</td><td>" + s.point + "</td><td>" + row + "</td></tr>");
+    });
+
+    fs.writeFileSync(fileName + "_" + game.round + ".html", header + tableBody.join().replace(/,/g, '') + tailer);
 }
 
 function getGameScoresAsTooltip(scores) {
-
     return  "title = \"&#013;" + scores.map(function(s) {
-
 	if(s.type === "maali") {
 	    return s.time + " -- Maali: " + s.point + "; score: " + s.scorer.name + "; pass: " + s.passer.name + "&#013;&#013;";
 	}
 	if(s.type === "rankkari") {
-	    return s.time + " -- Maali: " + s.point + "; score: " + s.scorer.name + "&#013;&#013;";
+	    return s.time + " -- Rangaistuspotku: " + s.point + "; score: " + s.scorer.name + "&#013;&#013;";
 	}
 	if(s.type === "omari") {
-	    return s.time + " -- Maali: " + s.point + "&#013;&#013;";
+	    return s.time + " -- Oma Maali: " + s.point + "&#013;&#013;";
 	}
-
     }).filter(function(f) { return f; }).toString().replace(/,/g, '') + "&#013;\"";
 }
 
@@ -469,7 +504,7 @@ datastorage.initialize("users", { users: [ { username: "test",
 					     phone: "" } ] }, true);
 datastorage.initialize("tournaments", { tournaments: [ { name: "Panthers Cup 2017",
 							 locked: false,
-							 outputFile: "./panthescup2017.html",
+							 outputFile: "./panthescup2017",
 							 games: [ { round: 1,
 								    home: "team1",
 								    guest: "team2",
