@@ -353,15 +353,24 @@ function updateTournamentFromClient(cookie, tournament) {
     }
 }
 
-function createPreviewHtmlPage(tournamentData) {
-
+function createPreviewHtmlPage(tournament) {
+    
 }
 
 function createHtmlResultsPage(tournament) {
     var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } tr:nth-child(even) { background-color: #dddddd; } </style><table><tr><th>Ottelu</th><th>Kotijoukkue</th><th>Vierasjoukkue</th><th>Aika</th><th>Tulos</th></tr>";
     var tailer = "</table></html>";
-    var tableBody = [];
+    return header + createMainResultBody(tournament) + tailer;
+}
 
+function createHtmlSubResultsPage(game) {
+    var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } </style><table><tr><th colspan=5>" + game.home + " - " + game.guest  + "</th></tr><tr><th>Aika</th><th>Piste</th><th>Tyyppi</th><th>Maalintekijä</th><th>Syöttäjä</th></tr><tr><td></td><td></td><td></td><td></td><td></td></tr>";
+    var tailer = "</table></html>";
+    return header + createSubResultBody(game) + tailer;
+}
+
+function createMainResultBody(tournament) {
+    var tableBody = [];
     tournament.games.forEach(function(g) {
 	var resultPageLink = "-"
 	if(g.result !== "-") {
@@ -371,16 +380,11 @@ function createHtmlResultsPage(tournament) {
 		       "</td><td>" + g.guest + "</td><td>" + g.time +
 		       "</td><td " + getGameScoresAsTooltip(g.scores) + " >" + resultPageLink + "</td></tr>")
     });
-
-    return header + tableBody.join().replace(/,/g, '') + tailer;
+    return tableBody.join().replace(/,/g, '');
 }
 
-function createHtmlSubResultsPage(game) {
-      var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } </style><table><tr><th colspan=5>" + game.home + " - " + game.guest  + "</th></tr><tr><th>Aika</th><th>Piste</th><th>Tyyppi</th><th>Maalintekijä</th><th>Syöttäjä</th></tr><tr><td></td><td></td><td></td><td></td><td></td></tr>";
-
-    var tailer = "</table></html>";
+function createSubResultBody(game) {
     var tableBody = [];
-
     game.scores.forEach(function(s) {
 	var scorer = "";
 	var passer = "";
@@ -399,8 +403,7 @@ function createHtmlSubResultsPage(game) {
 	}
 	tableBody.push("<tr><td>" + s.time + "</td><td>" + s.point + "</td><td>" + row + "</td></tr>");
     });
-
-    return header + tableBody.join().replace(/,/g, '') + tailer;
+    return tableBody.join().replace(/,/g, '');
 }
 
 function getGameScoresAsTooltip(scores) {
