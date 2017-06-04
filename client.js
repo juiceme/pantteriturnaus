@@ -47,8 +47,10 @@ mySocket.onmessage = function (event) {
    }
 
     if(receivable.type == "showTournament") {
-	var tournamentData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
-	console.log("function for show is not implemented yet")
+	var previewData = atob(JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128)));
+	var wnd = window.document.open("about:blank", "", "scrollbars=yes");
+	wnd.document.write(decodeURIComponent(escape(previewData)));
+	wnd.document.close();
     }
 
     if(receivable.type == "editTournament") {
