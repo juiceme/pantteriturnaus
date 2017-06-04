@@ -76,23 +76,6 @@ mySocket.onmessage = function (event) {
 	document.body.replaceChild(createAdminView(adminData),
 				   document.getElementById("myDiv2"));
     }
-
-    if(receivable.type == "pdfUpload") {
-	var pdfData = atob(JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128)));
-	window.open("data:application/pdf," + escape(pdfData));
-    }
-
-    if(receivable.type == "zipUpload") {
-	var zipData = atob(JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128)));
-	window.open("data:application/zip," + escape(zipData));
-    }
-
-    if(receivable.type == "helpText") {
-	var helpText = atob(JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128)));
-	var wnd = window.document.open("about:blank", "", "scrollbars=yes");
-	wnd.document.write(decodeURIComponent(escape(helpText)));
-	wnd.document.close();
-    }
 }
 
 

@@ -192,10 +192,9 @@ function processTournamentDataShow(cookie, content) {
     var tournamentName = JSON.parse(Aes.Ctr.decrypt(content, cookie.user.password, 128));
     servicelog("Client #" + cookie.count + " requests tournament show: " + JSON.stringify(tournamentName));
     if(userHasViewPrivilige(cookie.user)) {
-	var tournmentWebPage = createPreviewHtmlPage(getTournamentDataByName(tournamentName));
-//	var tournmentWebPage = fs.readFileSync(tournamentData.outputFile + ".html").toString("base64");
+	var tournmentWebPage = new Buffer(createPreviewHtmlPage(getTournamentDataByName(tournamentName)));
 	sendable = { type: "showTournament",
-		     content: tournmentWebPage };
+		     content: tournmentWebPage.toString("base64") };
 	sendCipherTextToClient(cookie, sendable);
 	servicelog("sent tournament html view to client");
     } else {
@@ -354,7 +353,15 @@ function updateTournamentFromClient(cookie, tournament) {
 }
 
 function createPreviewHtmlPage(tournament) {
-    
+    var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } </style><table><tr><th>Ottelu</th><th>Kotijoukkue</th><th>Vierasjoukkue</th><th>Aika</th><th>Tulos</th></tr>";
+    var mainBody = createMainResultBody(tournament) + "</table>";
+    var tableBody = [];
+    tournament.games.forEach(function(g) {
+	tableBody.push("<br><table><tr><th colspan=5>" + g.home + " - " + g.guest  + "</th></tr><tr><th>Aika</th><th>Piste</th><th>Tyyppi</th><th>Maalintekijä</th><th>Syöttäjä</th></tr><tr><td></td><td></td><td></td><td></td><td></td></tr>");
+	tableBody.push(createSubResultBody(g));
+	tableBody.push("</table>");
+    });
+    return header + mainBody + tableBody.join().replace(/,/g, '') + "</html>"
 }
 
 function createHtmlResultsPage(tournament) {
