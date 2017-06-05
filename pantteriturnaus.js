@@ -364,7 +364,8 @@ function createPreviewHtmlPage(tournament) {
 	tableBody.push(createSubResultBody(g));
 	tableBody.push("</table>");
     });
-    return header + mainBody + tableBody.join().replace(/,/g, '') + "</html>"
+    var topListHeader = "<br><table>><tr><th colspan=2>Toplist</th></tr><tr><th>Pelaaja</th><th>Tehopisteet</th></tr><tr><td></td><td></td></tr>";
+    return header + mainBody + tableBody.join().replace(/,/g, '') + topListHeader + createHtmlTopListBody(tournament) + "</html>"
 }
 
 function createHtmlMainResultsPage(tournament) {
@@ -431,32 +432,36 @@ function getGameScoresAsTooltip(scores) {
 }
 
 function createHtmlTopListPage(tournament) {
+    var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } </style><table><tr><th>Pelaaja</th><th>Tehopisteet</th></tr><tr><td></td><td></td></tr>";
+    return header + createHtmlTopListBody(tournament) + "</table></html>";
+}
+
+
+function createHtmlTopListBody(tournament) {
     teams = datastorage.read("teams").teams;
     var allPlayers = [];
     teams.forEach(function(t) {
 	t.players.forEach(function(p) {
-	    allPlayers.push({ name: p.name, number: p.number, scores: 0, passes: 0 });
+	    allPlayers.push({ name: p.name, number: p.number, scores: 0, passes: 0, key: 0 });
 	});
     });
     allPlayers.forEach(function(p) {
 	tournament.games.forEach(function(g) {
 	    g.scores.forEach(function(s) {
-		if(p.name === s.passer.name) { p.passes++; }
-		if(p.name === s.scorer.name) { p.scores++; }
+		if(p.name === s.passer.name) { p.passes++; p.key++; }
+		if(p.name === s.scorer.name) { p.scores++; p.key+=10; }
 	    }); 
 	});
     });
     var topPlayers = allPlayers.filter(function(p) {
 	if((p.passes > 0) || (p.scores > 0)) { return p; }
     });
-    return sortPlayerList(topPlayers);
-}
-
-function sortPlayerList(players) {
-    servicelog("Unsorted : " + JSON.stringify(players));
-    var lista = sort("scores", players);
-    servicelog("Sorted   : " + JSON.stringify(players));
-    return lista;
+    sort("key", topPlayers);
+    var tableBody = [];
+    topPlayers.forEach(function(p) {
+	tableBody.push("<tr><td>" + p.name + "</td><td>" + p.scores + " + " + p.passes + "</td></tr>");
+    });
+    return tableBody.join().replace(/,/g, '');
 }
 
 var sort = function(prop, arr) {
