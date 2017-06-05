@@ -381,7 +381,7 @@ function createMainResultBody(tournament) {
     tournament.games.forEach(function(g) {
 	var resultPageLink = "-"
 	if(g.result !== "-") {
-	    resultPageLink = "<a href=\"" + tournament.outputFile + "_" + g.round + ".html\">" +  g.result + "</a>";
+	    resultPageLink = "<a href=\"" + tournament.outputFile.substring(tournament.outputFile.lastIndexOf("/")+1) + "_" + g.round + ".html\">" +  g.result + "</a>";
 	}
 	tableBody.push("<tr><td>" + g.round + "</td><td>" + g.home +
 		       "</td><td>" + g.guest + "</td><td>" + g.time +
