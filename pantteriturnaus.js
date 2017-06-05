@@ -435,9 +435,7 @@ function createHtmlTopListPage(tournament) {
     var allPlayers = [];
     teams.forEach(function(t) {
 	t.players.forEach(function(p) {
-	    p.scores = 0;
-	    p.passes = 0;
-	    allPlayers.push(p);
+	    allPlayers.push({ name: p.name, number: p.number, scores: 0, passes: 0 });
 	});
     });
     allPlayers.forEach(function(p) {
