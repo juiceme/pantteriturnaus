@@ -340,16 +340,19 @@ function updateTournamentFromClient(cookie, tournament) {
     if(datastorage.write("tournaments", { tournaments: newTournaments }) === false) {
 	servicelog("Tournament database write failed");
     } else {
-	fs.writeFileSync(myTournament.outputFile + ".html", createHtmlResultsPage(myTournament));
-
-	tournament.games.forEach(function(g) {
-	    if(g.result !== "-") {
-		fs.writeFileSync(myTournament.outputFile + "_" + g.round + ".html", createHtmlSubResultsPage(g));
-	    }
-	});
-
+	createTournamentHtmlPages(myTournament);
 	servicelog("Updated tournament database with new tournament data");
     }
+}
+
+function createTournamentHtmlPages(myTournament) {
+    fs.writeFileSync(myTournament.outputFile + ".html", createHtmlMainResultsPage(myTournament));
+    myTournament.games.forEach(function(g) {
+	if(g.result !== "-") {
+	    fs.writeFileSync(myTournament.outputFile + "_" + g.round + ".html", createHtmlSubResultsPage(g));
+	}
+    });
+    fs.writeFileSync(myTournament.outputFile + "_toplist" + ".html", createHtmlTopListPage(myTournament));
 }
 
 function createPreviewHtmlPage(tournament) {
@@ -364,7 +367,7 @@ function createPreviewHtmlPage(tournament) {
     return header + mainBody + tableBody.join().replace(/,/g, '') + "</html>"
 }
 
-function createHtmlResultsPage(tournament) {
+function createHtmlMainResultsPage(tournament) {
     var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } tr:nth-child(even) { background-color: #dddddd; } </style><table><tr><th>Ottelu</th><th>Kotijoukkue</th><th>Vierasjoukkue</th><th>Aika</th><th>Tulos</th></tr>";
     var tailer = "</table></html>";
     return header + createMainResultBody(tournament) + tailer;
@@ -426,6 +429,49 @@ function getGameScoresAsTooltip(scores) {
 	}
     }).filter(function(f) { return f; }).toString().replace(/,/g, '') + "&#013;\"";
 }
+
+function createHtmlTopListPage(tournament) {
+    teams = datastorage.read("teams").teams;
+    var allPlayers = [];
+    teams.forEach(function(t) {
+	t.players.forEach(function(p) {
+	    p.scores = 0;
+	    p.passes = 0;
+	    allPlayers.push(p);
+	});
+    });
+    allPlayers.forEach(function(p) {
+	tournament.games.forEach(function(g) {
+	    g.scores.forEach(function(s) {
+		if(p.name === s.passer.name) { p.passes++; }
+		if(p.name === s.scorer.name) { p.scores++; }
+	    }); 
+	});
+    });
+    var topPlayers = allPlayers.filter(function(p) {
+	if((p.passes > 0) || (p.scores > 0)) { return p; }
+    });
+    return sortPlayerList(topPlayers);
+}
+
+function sortPlayerList(players) {
+    servicelog("Unsorted : " + JSON.stringify(players));
+    var lista = sort("scores", players);
+    servicelog("Sorted   : " + JSON.stringify(players));
+    return lista;
+}
+
+var sort = function(prop, arr) {
+    arr.sort(function(a, b) {
+        if (a[prop] > b[prop]) {
+            return -1;
+        } else if (a[prop] < b[prop]) {
+            return 1;
+        } else {
+            return 0;
+        }
+    });
+};
 
 function readUserData() {
     userData = datastorage.read("users");
