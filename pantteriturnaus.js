@@ -353,11 +353,13 @@ function createTournamentHtmlPages(myTournament) {
 	}
     });
     fs.writeFileSync(myTournament.outputFile + "_toplist" + ".html", createHtmlTopListPage(myTournament));
+    fs.writeFileSync(myTournament.outputFile + "_positions" + ".html", createHtmlPositionsPage(myTournament));
 }
 
 function createPreviewHtmlPage(tournament) {
     var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } </style><table><tr><th>Ottelu</th><th>Kotijoukkue</th><th>Vierasjoukkue</th><th>Aika</th><th>Tulos</th></tr>";
     var mainBody = createMainResultBody(tournament) + "</table>";
+    var resultsBody = createTournamentPositionResults(tournament);
     var tableBody = [];
     tournament.games.forEach(function(g) {
 	tableBody.push("<br><table><tr><th colspan=5>" + g.home + " - " + g.guest  + "</th></tr><tr><th>Aika</th><th>Piste</th><th>Tyyppi</th><th>Maalintekijä</th><th>Syöttäjä</th></tr><tr><td></td><td></td><td></td><td></td><td></td></tr>");
@@ -365,13 +367,21 @@ function createPreviewHtmlPage(tournament) {
 	tableBody.push("</table>");
     });
     var topListHeader = "<br><table>><tr><th colspan=2>Toplist</th></tr><tr><th>Pelaaja</th><th>Tehopisteet</th></tr><tr><td></td><td></td></tr>";
-    return header + mainBody + tableBody.join().replace(/,/g, '') + topListHeader + createHtmlTopListBody(tournament) + "</html>"
+    return header + mainBody + resultsBody + tableBody.join().replace(/,/g, '') + topListHeader + createHtmlTopListBody(tournament) + "</html>"
 }
 
 function createHtmlMainResultsPage(tournament) {
     var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } tr:nth-child(even) { background-color: #dddddd; } </style><table><tr><th>Ottelu</th><th>Kotijoukkue</th><th>Vierasjoukkue</th><th>Aika</th><th>Tulos</th></tr>";
+    var mainBody = createMainResultBody(tournament) + "</table>";
     var tailer = "</table></html>";
-    return header + createMainResultBody(tournament) + tailer;
+    return header + mainBody + tailer;
+}
+
+function createHtmlPositionsPage(tournament) {
+    var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } </style>";
+    mainBody = createTournamentPositionResults(tournament);
+    var tailer = "</table></html>";
+    return header + mainBody + tailer;
 }
 
 function createHtmlSubResultsPage(game) {
@@ -392,6 +402,65 @@ function createMainResultBody(tournament) {
 		       "</td><td " + getGameScoresAsTooltip(g.scores) + " >" + resultPageLink + "</td></tr>")
     });
     return tableBody.join().replace(/,/g, '');
+}
+
+function createTournamentPositionResults(tournament) {
+    var positions = [];
+    tournament.games.forEach(function(g) {
+	var flag = true;
+	positions.forEach(function(p) { if(p.name === g.home) { flag = false; }});
+	if (flag) {
+	    positions.push( { name: g.home, wins: 0, evens: 0, loses: 0, scoresMade: 0, scoresLost: 0 } );
+	}
+    });
+    positions.forEach(function(t) {
+	tournament.games.forEach(function(g) {
+	    if (t.name == g.home) {
+		if((getScores(g.scores, g.home) !== 0) || (getScores(g.scores, g.guest) !== 0)) {
+		    t.scoresMade += getScores(g.scores, g.home);
+		    t.scoresLost += getScores(g.scores, g.guest);
+		    if(getScores(g.scores, g.home) > getScores(g.scores, g.guest)) { t.wins++; }
+		    if(getScores(g.scores, g.home) === getScores(g.scores, g.guest)) { t.evens++; }
+		    if(getScores(g.scores, g.home) < getScores(g.scores, g.guest)) { t.loses++; }
+		}
+	    }
+	    if (t.name == g.guest) {
+		if((getScores(g.scores, g.home) !== 0) || (getScores(g.scores, g.guest) !== 0)) {
+		    t.scoresMade += getScores(g.scores, g.guest);
+		    t.scoresLost += getScores(g.scores, g.home);
+		    if(getScores(g.scores, g.home) < getScores(g.scores, g.guest)) { t.wins++; }
+		    if(getScores(g.scores, g.home) === getScores(g.scores, g.guest)) { t.evens++; }
+		    if(getScores(g.scores, g.home) > getScores(g.scores, g.guest)) { t.loses++; }
+		}
+	    }
+	});
+    });
+    positions.forEach(function(t) {
+	t.difference = t.scoresMade - t.scoresLost;
+    });
+    sort("wins", positions);
+
+    var tableHeader = "<br><table><tr><th colspan=7>SIJOITUS</th></tr><tr><th>Joukkue</th><th>V</th><th>H</th><th>T</th><th>TM</th><th>PM</th><th>ME</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>";
+
+    var tableBody = [];
+    positions.forEach(function(t) {
+	tableBody.push("<tr><td>" + t.name + "</td><td>" + t.wins + "</td><td>" + t.loses + "</td><td>" + t.evens +
+		       "</td><td>" + t.scoresMade + "</td><td>" + t.scoresLost + "</td><td>" + t.difference + "</td></tr>");
+    });
+    return tableHeader + tableBody.join().replace(/,/g, '') + "</table>";
+}
+
+function getScores(scores, team) {
+    if(scores.length === 0) return 0;
+    return scores.map(function(a) {
+	if(a.point === team) {
+	    return 1;
+	} else {
+	    return 0;
+	}
+    }).reduce(function(a, b) {
+	return a+b;
+    });
 }
 
 function createSubResultBody(game) {
