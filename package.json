@@ -25,6 +25,7 @@
     "websocket": "=1.0.22"
   },
   "scripts": {
+    "install": "git submodule init; git submodule update"
   },
   "engine": [
     "node >= v0.10.0"
