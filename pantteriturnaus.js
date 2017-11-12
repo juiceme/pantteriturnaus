@@ -101,6 +101,8 @@ wsServer.on('request', function(request) {
 	       stateIs(cookie, "loggedIn")) { processSaveTournamentData(cookie, content); }
 	    if((type === "saveAllTournamentsData") &&
 	       stateIs(cookie, "loggedIn")) { processSaveAllTournamentsData(cookie, content); }
+	    if((type === "saveTournamentGameData") &&
+	       stateIs(cookie, "loggedIn")) { processSaveTournamentGameData(cookie, content); }
 	    if((type === "adminMode") &&
 	       stateIs(cookie, "loggedIn")) { processAdminMode(cookie, content); }
 	    if((type === "saveAdminData") &&
@@ -301,6 +303,18 @@ function processSaveAllTournamentsData(cookie, content) {
     sendTournamentMainData(cookie);
 }
 
+function processSaveTournamentGameData(cookie, content) {
+    var sendable;
+    var tournamentData = JSON.parse(Aes.Ctr.decrypt(content, cookie.user.password, 128));
+    servicelog("Client #" + cookie.count + " requests tournament games saving: " + JSON.stringify(tournamentData));
+    if(userHasEditTournamentsPrivilige(cookie.user)) {
+	updateSingleTournamentFromClient(cookie, tournamentData);
+    } else {
+	servicelog("user has insufficent priviliges to edit tournament games");
+    }
+    sendTournamentMainData(cookie);
+}
+
 function processAdminMode(cookie, content) {
     servicelog("Client #" + cookie.count + " requests Sytem Administration priviliges");
     if(userHasSysAdminPrivilige(cookie.user)) {
@@ -404,6 +418,21 @@ function updateAllTournamentsFromClient(cookie, tournamentsData) {
 	    newTournaments.push(t);
 	}
     });
+
+    if(datastorage.write("tournaments", { tournaments: newTournaments }) === false) {
+	servicelog("Tournament database write failed");
+    } else {
+	servicelog("Updated tournament database with new tournament data");
+    }
+}
+
+function updateSingleTournamentFromClient(cookie, tournamentData) {
+    var tournaments = datastorage.read("tournaments").tournaments;
+
+    var newTournaments = tournaments.map(function(t) {
+	if(t.name !== tournamentData.name) { return t; }
+    }).filter(function(f) { return f; });
+    newTournaments.push(tournamentData);
 
     if(datastorage.write("tournaments", { tournaments: newTournaments }) === false) {
 	servicelog("Tournament database write failed");
