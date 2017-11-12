@@ -53,11 +53,27 @@ mySocket.onmessage = function (event) {
 	wnd.document.close();
     }
 
-    if(receivable.type == "editTournament") {
+    if(receivable.type == "editAllTournaments") {
+	var tournamentMainData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
+	document.body.replaceChild(createTopButtons({type: "user"}, tournamentMainData),
+				   document.getElementById("myDiv1"));
+	document.body.replaceChild(createEditTournamentsView(tournamentMainData.tournaments),
+				   document.getElementById("myDiv2"));
+    }
+
+    if(receivable.type == "editOneTournamentScores") {
 	var tournamentData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
 	document.body.replaceChild(createTopButtons({type: "user"}, tournamentData),
 				   document.getElementById("myDiv1"));
-	document.body.replaceChild(createTournamentView(tournamentData),
+	document.body.replaceChild(createTournamentScoresView(tournamentData),
+				   document.getElementById("myDiv2"));
+   }
+
+    if(receivable.type == "editOneTournamentData") {
+	var tournamentData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
+	document.body.replaceChild(createTopButtons({type: "user"}, tournamentData),
+				   document.getElementById("myDiv1"));
+	document.body.replaceChild(createTournamentEditView(tournamentData),
 				   document.getElementById("myDiv2"));
    }
 
@@ -131,13 +147,13 @@ function showTournament(tournamentMainData, button) {
 }
 
 function editTournament(tournamentMainData, button) {
-    sendToServerEncrypted("getTournamentDataForEdit", button.id);
+    sendToServerEncrypted("getOneTournamentScoresForEdit", button.id);
 }
 
 
 // ---------- Main user tournament view
 
-function createTournamentView(tournamentData) {
+function createTournamentScoresView(tournamentData) {
 
     var fieldset = document.createElement('fieldsetset');
     fieldset.appendChild(document.createElement('br'));
@@ -552,9 +568,229 @@ function deletePlayerFromList(teamData, button) {
 
 // ---------- Tournament editing
 
-function editTournaments(tournamentData) {
-    console.log("function editTournaments() is not implemented yet")
+function createEditTournamentsView(tournaments) {
+    var fieldset = document.createElement("fieldset");
+    fieldset.appendChild(document.createElement("br"));
+    var acceptButton = document.createElement('button');
+    var cancelButton = document.createElement('button');
+    var table = document.createElement('table');
+    var tableHeader = document.createElement('thead');
+    var tableBody = document.createElement('tbody');
+    var hRow = tableHeader.insertRow();    
+    var hCell0 = hRow.insertCell();
+    var hCell1 = hRow.insertCell();
+    var hCell2 = hRow.insertCell();
+    hCell1.innerHTML = "<b>" + uiText("Tournament") + "</b>";
+    hCell2.innerHTML = "<b>" + uiText("Locked") + "</b>";
+    var count=1;
+
+    tournaments.forEach(function(t) {
+	tableBody.appendChild(createTournamentsEditTableRow(count, tournaments, t.name, t.locked, false));
+	count++;
+    });
+
+    tableBody.appendChild(createTournamentsEditTableRow(count, tournaments, "<name>", false, true));
+    table.appendChild(tableHeader);
+    table.appendChild(tableBody);
+    fieldset.appendChild(table);
+    fieldset.appendChild(document.createElement('br'));
+    acceptButton.appendChild(document.createTextNode(uiText("OK")));
+    acceptButton.onclick = function() { saveTournamentsEdit(tournaments); }
+    cancelButton.appendChild(document.createTextNode(uiText("Peruuta")));
+    cancelButton.onclick = function() { cancelTournamentsEdit(); }
+    fieldset.appendChild(acceptButton);
+    fieldset.appendChild(cancelButton);
+    fieldset.appendChild(document.createElement('br'));
+    fieldset.id = "myDiv2";
+    return fieldset;
 }
+
+function saveTournamentsEdit(tournaments) {
+    var count = 1;
+    var newTournaments = [];
+
+    tournaments.forEach(function(t) {
+	var tournament = { name: document.getElementById("to_" + count + "_name").value,
+			   locked: document.getElementById("to_" + count + "_locked").checked };
+	newTournaments.push(tournament);
+	count++;
+    });
+
+    sendToServerEncrypted("saveAllTournamentsData", newTournaments);
+}
+
+function cancelTournamentsEdit() {
+    sendToServerEncrypted("resetToMain", {});
+}
+
+function createTournamentsEditTableRow(count, tournaments, name, locked, lastRow) {
+    var row = document.createElement('tr');
+    var cell0 = document.createElement('td');
+    cell0.appendChild(document.createTextNode(count));
+    row.appendChild(cell0);
+
+    var cell1 = document.createElement('td');
+    var txtA1 = document.createElement("textarea");
+    txtA1.id = "to_" + count + "_name";
+    txtA1.setAttribute('cols', 30);
+    txtA1.setAttribute('rows', 1);
+    txtA1.value = name;
+    cell1.appendChild(txtA1);
+    row.appendChild(cell1);
+
+    var cell2 = document.createElement('td');
+    var checkBox = document.createElement('input');
+    checkBox.type = "checkbox";
+    checkBox.id = "to_" + count + "_locked";
+    checkBox.checked = locked
+    checkBox.title = "locked";
+    cell2.appendChild(checkBox);
+    row.appendChild(cell2);
+
+    var cell3 = document.createElement('td');
+    if(lastRow) {
+	var addButton = document.createElement("button");
+	addButton.appendChild(document.createTextNode(uiText("Add new")));
+	addButton.id = count;
+	addButton.onclick = function() { createTournamentToList(tournaments, this); }
+	cell3.appendChild(addButton);
+	row.appendChild(cell3);
+    } else {
+	var deleteButton = document.createElement("button");
+	deleteButton.appendChild(document.createTextNode(uiText("Delete")));
+	deleteButton.id = count;
+	deleteButton.onclick = function() { deleteTournamentFromList(tournaments, this); }
+	cell3.appendChild(deleteButton);
+	row.appendChild(cell3);
+	var cell4 = document.createElement('td');
+	var editButton = document.createElement("button");
+	editButton.appendChild(document.createTextNode(uiText("Edit")));
+	editButton.id = count;
+	editButton.onclick = function() { editTournamentData(tournaments, this); }
+	cell4.appendChild(editButton);
+	row.appendChild(cell4);
+    }
+    return row;
+}
+
+function createTournamentToList(tournaments, button) {
+    var newTournament = { name: document.getElementById("to_" + button.id + "_name").value,
+			  locked: document.getElementById("to_" + button.id + "_locked").checked };
+    tournaments.push(newTournament);
+
+    document.body.replaceChild(createEditTournamentsView(tournaments),
+			       document.getElementById("myDiv2"));
+    return false;
+}
+
+function deleteTournamentFromList(tournaments, button) {
+    var newTournaments = tournaments.map(function(a,b){
+	if(b != (button.id - 1)) { return a; }
+    }).filter(function(s){ return s; });
+
+    document.body.replaceChild(createEditTournamentsView(newTournaments),
+			       document.getElementById("myDiv2"));
+    return false;
+}
+
+function editTournaments(tournamentData) {
+    sendToServerEncrypted("getAllTournamentsDataForEdit", "none");
+    return false;
+}
+
+function editTournamentData(tournaments, button) {
+    var tournamentName = tournaments.map(function(a,b){
+	if(b === (button.id - 1)) { return a; }
+    }).filter(function(s){ return s; })[0].name;
+
+    sendToServerEncrypted("getTournamentDataForEditByName", { name : tournamentName });
+}
+
+
+// ---------- Tournament data editing
+
+function createTournamentEditView(tournamentData) {
+    var fieldset = document.createElement("fieldset");
+    fieldset.appendChild(document.createElement("br"));
+    var acceptButton = document.createElement('button');
+    var cancelButton = document.createElement('button');
+    var table = document.createElement('table');
+    var tableHeader = document.createElement('thead');
+    var tableBody = document.createElement('tbody');
+    var hRow = tableHeader.insertRow();    
+    var hCell0 = hRow.insertCell();
+    var hCell1 = hRow.insertCell();
+    var hCell2 = hRow.insertCell();
+    hCell1.innerHTML = "<b>" + uiText(tournamentData.tournament.name) + "</b>";
+    var count=1;
+
+	console.log("wohoo: " + JSON.stringify(tournamentData.tournament));
+
+    tournamentData.tournament.games.forEach(function(g) {
+	console.log("sinkeli: " + JSON.stringify(g));
+	tableBody.appendChild(createTournamentGameEditTableRow(count, tournamentData, g, false));
+	count++;
+    });
+
+    var newGame = { time: "09:00 - 09:45", home: "<home>", guest: "<guest>" };
+    tableBody.appendChild(createTournamentGameEditTableRow(count, tournamentData, newGame, true));
+    table.appendChild(tableHeader);
+    table.appendChild(tableBody);
+    fieldset.appendChild(table);
+    fieldset.appendChild(document.createElement('br'));
+    acceptButton.appendChild(document.createTextNode(uiText("OK")));
+    acceptButton.onclick = function() { saveTournamentGameEdit(tournamentData); }
+    cancelButton.appendChild(document.createTextNode(uiText("Peruuta")));
+    cancelButton.onclick = function() { cancelTournamentGameEdit(); }
+    fieldset.appendChild(acceptButton);
+    fieldset.appendChild(cancelButton);
+    fieldset.appendChild(document.createElement('br'));
+    fieldset.id = "myDiv2";
+    return fieldset;
+}
+
+function createTournamentGameEditTableRow(count, tournamentData, game, lastRow) {
+    row = document.createElement('tr');
+    var cell0 = document.createElement('td');
+    cell0.appendChild(document.createTextNode(count));
+    row.appendChild(cell0);
+
+    var cell1 = document.createElement('td');
+    var txtA1 = document.createElement("textarea");
+    txtA1.id = "tg_" + count + "_time";
+    txtA1.setAttribute('cols', 30);
+    txtA1.setAttribute('rows', 1);
+    txtA1.value = game.time;
+    cell1.appendChild(txtA1);
+    row.appendChild(cell1);
+
+    var cell2 = document.createElement('td');
+    var txtA2 = document.createElement("textarea");
+    txtA2.id = "tg_" + count + "_home";
+    txtA2.setAttribute('cols', 30);
+    txtA2.setAttribute('rows', 1);
+    txtA2.value = game.home;
+    cell2.appendChild(txtA2);
+    row.appendChild(cell2);
+
+    var cell3 = document.createElement('td');
+    var txtA3 = document.createElement("textarea");
+    txtA3.id = "tg_" + count + "_guest";
+    txtA3.setAttribute('cols', 30);
+    txtA3.setAttribute('rows', 1);
+    txtA3.value = game.guest;
+    cell3.appendChild(txtA3);
+    row.appendChild(cell3);
+  
+    return row;
+}
+
+function saveTournamentGameEdit(tournamentData) {
+}
+
+function cancelTournamentGameEdit() {
+}
+
 
 
 // ---------- Sysadmin panel handling
@@ -568,7 +804,7 @@ function createAdminView(adminData) {
     acceptButton.appendChild(document.createTextNode(uiText("OK")));
     acceptButton.onclick = function() { saveAdminEdit(adminData); }
     cancelButton.appendChild(document.createTextNode(uiText("Peruuta")));
-    cancelButton.onclick = function() { cancelAdminEdit(adminData); }
+    cancelButton.onclick = function() { cancelAdminEdit(); }
     fieldset.appendChild(acceptButton);
     fieldset.appendChild(cancelButton);
     fieldset.appendChild(document.createElement('br'));
@@ -596,7 +832,7 @@ function saveAdminEdit(adminData) {
     sendToServerEncrypted("saveAdminData", adminData);
 }
 
-function cancelAdminEdit(adminData) {
+function cancelAdminEdit() {
     sendToServerEncrypted("resetToMain", {});
 }
 
@@ -973,8 +1209,8 @@ function createTopButtons(mode, tournamentData) {
 	}
 	if(havePrivilige(tournamentData.priviliges, "tournament-edit")) {
 	    var tournamentButton = document.createElement("button");
-	    tournamentButton.onclick = function() { editTournaments(); }
-	    tournamentButton.appendChild(document.createTextNode(uiText("Muokkaa turnausta")));
+	    tournamentButton.onclick = function() { editTournaments(tournamentData); }
+	    tournamentButton.appendChild(document.createTextNode(uiText("Muokkaa turnauksia")));
 	    buttonBox.appendChild(tournamentButton);
 	}
 	if(havePrivilige(tournamentData.priviliges, "system-admin")) {
@@ -995,6 +1231,6 @@ function createTopButtons(mode, tournamentData) {
 }
 
 function editTeams() {
-    sendToServerEncrypted("getTeamsDataforEdit", "none");
+    sendToServerEncrypted("getTeamsDataForEdit", "none");
     return false;
 }
