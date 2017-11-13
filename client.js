@@ -627,16 +627,19 @@ function createEditTournamentsView(tournaments) {
     var hCell0 = hRow.insertCell();
     var hCell1 = hRow.insertCell();
     var hCell2 = hRow.insertCell();
+    var hCell3 = hRow.insertCell();
     hCell1.innerHTML = "<b>" + "Tournament" + "</b>";
     hCell2.innerHTML = "<b>" + "Locked" + "</b>";
+    hCell3.innerHTML = "<b>" + "Output file" + "</b>";
     var count=1;
 
     tournaments.forEach(function(t) {
-	tableBody.appendChild(createTournamentsEditTableRow(count, tournaments, t.name, t.locked, false));
+	tableBody.appendChild(createTournamentsEditTableRow(count, tournaments, t, false));
 	count++;
     });
 
-    tableBody.appendChild(createTournamentsEditTableRow(count, tournaments, "<name>", false, true));
+    var newTournament = { name: "<name>", locked: false, outputFile: "./outputfile" };
+    tableBody.appendChild(createTournamentsEditTableRow(count, tournaments, newTournament, true));
     table.appendChild(tableHeader);
     table.appendChild(tableBody);
     fieldset.appendChild(table);
@@ -658,7 +661,8 @@ function saveTournamentsEdit(tournaments) {
 
     tournaments.forEach(function(t) {
 	var tournament = { name: document.getElementById("to_" + count + "_name").value,
-			   locked: document.getElementById("to_" + count + "_locked").checked };
+			   locked: document.getElementById("to_" + count + "_locked").checked,
+			   outputFile: document.getElementById("to_" + count + "_outputFile").value };
 	newTournaments.push(tournament);
 	count++;
     });
@@ -672,7 +676,7 @@ function cancelTournamentsEdit() {
     return false;
 }
 
-function createTournamentsEditTableRow(count, tournaments, name, locked, lastRow) {
+function createTournamentsEditTableRow(count, tournaments, t, lastRow) {
     var row = document.createElement('tr');
     var cell0 = document.createElement('td');
     cell0.appendChild(document.createTextNode(count));
@@ -683,7 +687,7 @@ function createTournamentsEditTableRow(count, tournaments, name, locked, lastRow
     txtA1.id = "to_" + count + "_name";
     txtA1.setAttribute('cols', 30);
     txtA1.setAttribute('rows', 1);
-    txtA1.value = name;
+    txtA1.value = t.name;
     cell1.appendChild(txtA1);
     row.appendChild(cell1);
 
@@ -691,33 +695,42 @@ function createTournamentsEditTableRow(count, tournaments, name, locked, lastRow
     var checkBox = document.createElement('input');
     checkBox.type = "checkbox";
     checkBox.id = "to_" + count + "_locked";
-    checkBox.checked = locked
+    checkBox.checked = t.locked
     checkBox.title = "locked";
     cell2.appendChild(checkBox);
     row.appendChild(cell2);
 
     var cell3 = document.createElement('td');
+    var txtA2 = document.createElement("textarea");
+    txtA2.id = "to_" + count + "_outputFile";
+    txtA2.setAttribute('cols', 30);
+    txtA2.setAttribute('rows', 1);
+    txtA2.value = t.outputFile;
+    cell3.appendChild(txtA2);
+    row.appendChild(cell3);
+
+    var cell4 = document.createElement('td');
     if(lastRow) {
 	var addButton = document.createElement("button");
 	addButton.appendChild(document.createTextNode("Add new"));
 	addButton.id = count;
 	addButton.onclick = function() { createTournamentToList(tournaments, this); }
-	cell3.appendChild(addButton);
-	row.appendChild(cell3);
+	cell4.appendChild(addButton);
+	row.appendChild(cell4);
     } else {
 	var deleteButton = document.createElement("button");
 	deleteButton.appendChild(document.createTextNode("Delete"));
 	deleteButton.id = count;
 	deleteButton.onclick = function() { deleteTournamentFromList(tournaments, this); }
-	cell3.appendChild(deleteButton);
-	row.appendChild(cell3);
-	var cell4 = document.createElement('td');
+	cell4.appendChild(deleteButton);
+	row.appendChild(cell4);
+	var cell5 = document.createElement('td');
 	var editButton = document.createElement("button");
 	editButton.appendChild(document.createTextNode("Edit"));
 	editButton.id = count;
 	editButton.onclick = function() { editTournamentData(tournaments, this); }
-	cell4.appendChild(editButton);
-	row.appendChild(cell4);
+	cell5.appendChild(editButton);
+	row.appendChild(cell5);
     }
     return row;
 }

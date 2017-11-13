@@ -214,7 +214,7 @@ function processAllTournamentsDataEdit(cookie, content) {
     servicelog("Client #" + cookie.count + " requests all tournaments edit ");
     if(userHasEditTournamentsPrivilige(cookie.user)) {
 	var tournaments = datastorage.read("tournaments").tournaments.map(function(t) {
-	    return { name: t.name, locked: t.locked };
+	    return { name: t.name, locked: t.locked, outputFile: t.outputFile };
 	});
 	sendable = { type: "editAllTournaments",
 		     content: { user: cookie.user.username,
@@ -409,6 +409,7 @@ function updateAllTournamentsFromClient(cookie, tournamentsData) {
 	    if(u.name === t.name) {
 		flag = false;
 		u.locked = t.locked;
+		u.outputFile = t.outputFile;
 		newTournaments.push(u);
 	    }
 	});
