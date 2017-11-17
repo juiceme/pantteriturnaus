@@ -92,7 +92,132 @@ mySocket.onmessage = function (event) {
 	document.body.replaceChild(createAdminView(adminData),
 				   document.getElementById("myDiv2"));
     }
+
+
+    // the new main method callpoint 
+
+    if(receivable.type == "createGenericEditFrame" {
+	
+	var inputData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
+	document.body.replaceChild(createTopButtons({type: "user"}, inputData),
+				   document.getElementById("myDiv1"));
+	document.body.replaceChild(createListFrame(inputData),
+				   document.getElementById("myDiv2"));
+    }
+
 }
+
+
+// ---------- Parse out UI elements from incoming message
+
+function createListFrame(inputData) {
+    var fieldset = document.createElement('fieldsetset');
+
+    fieldset.appendChild(document.createElement('br'));
+    fieldset.appendChild(createEditableItemlist(inputData.itemList));
+    fieldset.appendChild(document.createElement('br'));
+    fieldset.appendChild(createAcceptButtons(inputData));
+    fieldset.appendChild(document.createElement('br'));
+    fieldset.id= "myDiv2";
+    return fieldset;
+}
+
+function createEditableItemlist(inputData) {
+    var table = document.createElement('table');
+    var tableHeader = document.createElement('thead');
+    var tableBody = document.createElement('tbody');
+
+    // itemList = { header: [ { text: text } ],
+    //              items: [ {} ] },
+    //              newItem;
+
+    var headerRow = tableHeader.insertRow();    
+    inputData.itemList.header.forEach(function(h) {
+	var cell= headerRow.insertCell();
+	cell.innerHTML = "<b>" + uiText(h.text) + "</b>";
+	headerRow.appendChild(cell);
+    });
+    var count = 1;
+    inputData.itemList.items.forEach(function(i) {
+	tablebody.appendChild(createEdittableItem(count, inputData, i, false));
+	count++;
+    });
+    var newItem = inputData.itemList.newItem;
+    tablebody.appendChild(createEdittableItem(count, inputData, newItem, true));
+    table.appendChild(tableHeader);
+    table.appendChild(tableBody);
+    return table;
+}
+
+function createAcceptButtons(inputData) {
+    var table = document.createElement('table');
+    var tableBody = document.createElement('tbody');
+    var tableRow = tableBody.insertRow();    
+
+    // buttonlist = [ { id: buttonId, text: buttonText, callbackMessage: mesage } ];
+
+    inputData.buttonList.forEach(function(b) {
+	var cell = document.createElement('td');
+	var button = document.createElement('button');
+	button.appendChild(document.createTextNode(b.text));
+	button.id = b.id;
+	button.onclick = function() {
+	    sendToServerEncrypted(b.callbackMessage, inputData.itemlist);
+	    return false;
+	};
+	cell.appendChild(button);
+	tableRow.appendChild(cell);
+    });
+    tableBody.appendChild(tableRow)
+    return table;
+}
+
+function createEdittableItem(count, inputData, item, lastRow) {
+    var tableRow = document.createElement('tr');
+
+    // item = [ { type: type, data: data } ]:
+
+    item.forEach(function(c) {
+	var cell = document.createElement('td');
+	cell.appendChild(createTypedObject(c));
+	tableRow.appendChild(cell);
+    });
+    var lastCell = document.createElement('td');
+    if(lastRow) {
+	var addButton = document.createElement("button");
+	addButton.appendChild(document.createTextNode("Luo uusi"));
+	addButton.id = count;
+	addButton.onclick = function() { createNewItemToList(inputData, id, this); }
+	lastCell.appendChild(addButton);
+    } else {
+	var deleteButton = document.createElement("button");
+	deleteButton.appendChild(document.createTextNode("Poista"));
+	deleteButton.id = count;
+	deleteButton.onclick = function() { deleteItemFromList(inputData, id, this); }
+	lastCell.appendChild(deleteButton);
+    }
+    tableRow.appendChild(lastCell);
+
+    return tableRow;
+}
+
+function createNewItemToList(inputData, id, button) {
+    return false;
+}
+
+function deleteItemFromList(inputData, id, button) {
+    var newlist = inputData.itemList.items.map(function(a,b) {
+	if(b != (button.id - 1)) { return a; }
+    }).filter(function(s){ return s; });
+    inputData.itemList = newlist;
+
+    document.body.replaceChild(createListFrame(inputData),
+			       document.getElementById("myDiv2"));
+    return false;
+)
+
+
+
 
 
 // ---------- Main tournament list view
