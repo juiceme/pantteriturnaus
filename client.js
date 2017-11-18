@@ -130,12 +130,15 @@ function createEditableItemlist(inputData) {
     //              items: [ {} ] },
     //              newItem;
 
-    var headerRow = tableHeader.insertRow();
-    headerRow.appendChild(document.createElement('td'));
+    var hRow0 = tableHeader.insertRow();
+//    var cell = hRow0.insertCell();
+    hRow0.innerHTML = "<b>" + uiText(inputData.itemList.title) + "</b>";
+    var hRow1 = tableHeader.insertRow();
+    hRow1.appendChild(document.createElement('td'));
     inputData.itemList.header.forEach(function(h) {
-	var cell= headerRow.insertCell();
+	var cell= hRow1.insertCell();
 	cell.innerHTML = "<b>" + uiText(h.text) + "</b>";
-	headerRow.appendChild(cell);
+	hRow1.appendChild(cell);
     });
     var count = 1;
     inputData.itemList.items.forEach(function(i) {
@@ -157,7 +160,7 @@ function createAcceptButtons(inputData) {
     // buttonlist = [ { id: buttonId, text: buttonText, callbackMessage: mesage } ];
 
     inputData.buttonList.forEach(function(b) {
-	var cell = document.createElement('td');
+//	var cell = document.createElement('td');
 	var button = document.createElement('button');
 	button.appendChild(document.createTextNode(b.text));
 	button.id = b.id;
@@ -165,8 +168,8 @@ function createAcceptButtons(inputData) {
 	    sendToServerEncrypted(b.callbackMessage, inputData.itemList);
 	    return false;
 	};
-	cell.appendChild(button);
-	tableRow.appendChild(cell);
+//	cell.appendChild(button);
+	tableRow.appendChild(button);
     });
     table.appendChild(tableBody);
     return table;
@@ -239,9 +242,48 @@ function createTypedObject(item) {
 	newItem.title = item.title;
     }
 
+    if(item.type === "selection") {
+	var newItem = document.createElement('select');
+	var myOption = document.createElement('option');
+	myOption.text = "";
+	myOption.item = "";
+	myOption.value = 0;
+	newItem.add(myOption);
+	var count = 1;
+	item.list.forEach(function(i) {
+	    var myOption = document.createElement('option');
+	    myOption.text = i.text;
+	    myOption.item = i.item;
+	    myOption.value = count++;
+	    newItem.add(myOption);
+	});
+	newItem.id = item.id;
+	setSelectedItemInList(newItem, item.selected);
+    }
+
+    if(item.type === "button") {
+	var newItem = document.createElement('button');
+	newItem.appendChild(document.createTextNode(item.text));
+	newItem.id = item.id;
+	newItem.onclick = function() { sendToServerEncrypted(item.callbackMessage,
+							     { id: newItem.id });
+				       return false;
+				     };
+    }
+
     return newItem;
 }
 
+function createSelectionList(myList, myId) {
+}
+
+function setSelectedItemInList(myList, myItem) {
+    myList.selectedIndex = Object.keys(myList).map(function(a) {
+       if(JSON.stringify(myList[a].item) === JSON.stringify(myItem)) return a;
+    }).filter(function(f) {
+       return f;
+    })[0];
+}
 
 
 // ---------- Main tournament list view
@@ -1322,34 +1364,6 @@ function havePrivilige(priviligeList, privilige) {
 
 function uiText(text) {
     return decodeURIComponent(escape(text));
-}
-
-function createSelectionList(myList, myId) {
-    var mySelectioList = document.createElement('select');
-    var myOption = document.createElement('option');
-    myOption.text = "";
-    myOption.item = "";
-    myOption.value = 0;
-    mySelectioList.add(myOption);
-
-    var count = 1;
-    myList.forEach(function(i) {
-	var myOption = document.createElement('option');
-	myOption.text = i.text;
-	myOption.item = i.item;
-	myOption.value = count++;
-	mySelectioList.add(myOption);
-    });
-    mySelectioList.id = myId;
-    return mySelectioList;
-}
-
-function setSelectedItemInList(myList, myItem) {
-    myList.selectedIndex = Object.keys(myList).map(function(a) {
-	if(JSON.stringify(myList[a].item) === JSON.stringify(myItem)) return a;
-    }).filter(function(f) {
-	return f;
-    })[0];
 }
 
 function calculateMatchScore(match) {
