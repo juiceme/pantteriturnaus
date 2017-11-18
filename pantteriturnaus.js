@@ -373,12 +373,38 @@ function sendTournamentMainData(cookie) {
     var tournaments = datastorage.read("tournaments").tournaments.map(function(t) {
 	return { name: t.name, locked: t.locked };
     });
-    sendable = { type: "tournamentMainData",
+
+    var buttonList =  [ { id: 55, text: "OK", callbackMessage: "sendOkMessage" },
+			{ id: 30, text: "Cancel", callbackMessage: "sendCancelMessage" },
+			{ id: 66, text: "Help", callbackMessage: "sendHelpMssage" } ];
+    var itemList = { header: [ { text: "1 sarake" },  { text: "toinen sarake" }, { text: "viimonen sarake" } ],
+                     items: [ [ { type: "textarea", id: 123, cols: 10, rows: 1, value: "baa" },
+				{ type: "textarea", id: 124, cols: 10, rows: 1, value: "moomoo" },
+				{ type: "textarea", id: 125, cols: 10, rows: 1, value: "liiblaaba" } ],
+			      [ { type: "checkbox", id: 133, checked: true, title: "jiihaa" },
+				{ type: "checkbox", id: 134, checked: false, title: "HiHaHoHu"  },
+				{ type: "textarea", id: 135, cols: 10, rows: 1, value: "12345" } ],
+			      [ { type: "textarea", id: 143, cols: 10, rows: 1, value: "v" },
+				{ type: "textarea", id: 144, cols: 10, rows: 1, value: "vv" },
+				{ type: "textarea", id: 145, cols: 10, rows: 1, value: "vvv" } ] ],
+		     newItem: [ { type: "textarea", id: 153, cols: 10, rows: 1, value: "<default>" },
+				{ type: "textarea", id: 154, cols: 10, rows: 1, value: "<fault>" },
+				{ type: "textarea", id: 155, cols: 10, rows: 1, value: "<de>" } ] };
+
+    sendable = { type: "createGenericEditFrame",
 		 content: { user: cookie.user.username,
 			    priviliges: cookie.user.applicationData.priviliges,
-			    tournaments: tournaments } };
+			    itemList: itemList,
+			    buttonList: buttonList } };
+
+
+//    sendable = { type: "tournamentMainData",
+//		 content: { user: cookie.user.username,
+//			    priviliges: cookie.user.applicationData.priviliges,
+//			    tournaments: tournaments } };
+
     sendCipherTextToClient(cookie, sendable);
-    servicelog("Sent tournamentMainData to client #" + cookie.count);
+    servicelog("Sent NEW tournamentMainData to client #" + cookie.count);
 }
 
 function updateTournamentFromClient(cookie, tournament) {

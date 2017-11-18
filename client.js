@@ -96,8 +96,7 @@ mySocket.onmessage = function (event) {
 
     // the new main method callpoint 
 
-    if(receivable.type == "createGenericEditFrame" {
-	
+    if(receivable.type == "createGenericEditFrame") {	
 	var inputData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
 	document.body.replaceChild(createTopButtons({type: "user"}, inputData),
 				   document.getElementById("myDiv1"));
@@ -114,7 +113,7 @@ function createListFrame(inputData) {
     var fieldset = document.createElement('fieldsetset');
 
     fieldset.appendChild(document.createElement('br'));
-    fieldset.appendChild(createEditableItemlist(inputData.itemList));
+    fieldset.appendChild(createEditableItemlist(inputData));
     fieldset.appendChild(document.createElement('br'));
     fieldset.appendChild(createAcceptButtons(inputData));
     fieldset.appendChild(document.createElement('br'));
@@ -131,7 +130,8 @@ function createEditableItemlist(inputData) {
     //              items: [ {} ] },
     //              newItem;
 
-    var headerRow = tableHeader.insertRow();    
+    var headerRow = tableHeader.insertRow();
+    headerRow.appendChild(document.createElement('td'));
     inputData.itemList.header.forEach(function(h) {
 	var cell= headerRow.insertCell();
 	cell.innerHTML = "<b>" + uiText(h.text) + "</b>";
@@ -139,11 +139,11 @@ function createEditableItemlist(inputData) {
     });
     var count = 1;
     inputData.itemList.items.forEach(function(i) {
-	tablebody.appendChild(createEdittableItem(count, inputData, i, false));
+	tableBody.appendChild(createEdittableItem(count, inputData, i, false));
 	count++;
     });
     var newItem = inputData.itemList.newItem;
-    tablebody.appendChild(createEdittableItem(count, inputData, newItem, true));
+    tableBody.appendChild(createEdittableItem(count, inputData, newItem, true));
     table.appendChild(tableHeader);
     table.appendChild(tableBody);
     return table;
@@ -162,13 +162,13 @@ function createAcceptButtons(inputData) {
 	button.appendChild(document.createTextNode(b.text));
 	button.id = b.id;
 	button.onclick = function() {
-	    sendToServerEncrypted(b.callbackMessage, inputData.itemlist);
+	    sendToServerEncrypted(b.callbackMessage, inputData.itemList);
 	    return false;
 	};
 	cell.appendChild(button);
 	tableRow.appendChild(cell);
     });
-    tableBody.appendChild(tableRow)
+    table.appendChild(tableBody);
     return table;
 }
 
@@ -177,6 +177,9 @@ function createEdittableItem(count, inputData, item, lastRow) {
 
     // item = [ { type: type, data: data } ]:
 
+    var cell = document.createElement('td');
+    cell.appendChild(document.createTextNode(count));
+    tableRow.appendChild(cell);
     item.forEach(function(c) {
 	var cell = document.createElement('td');
 	cell.appendChild(createTypedObject(c));
@@ -214,9 +217,30 @@ function deleteItemFromList(inputData, id, button) {
     document.body.replaceChild(createListFrame(inputData),
 			       document.getElementById("myDiv2"));
     return false;
-)
+}
 
+function createTypedObject(item) {
 
+//    console.log("item: " + JSON.stringify(item));
+
+    if(item.type === "textarea") {
+	var newItem = document.createElement("textarea");
+	newItem.id = item.id;
+	newItem.setAttribute('cols', item.cols);
+	newItem.setAttribute('rows', item.rows);
+	newItem.value = item.value;
+    }
+
+    if(item.type === "checkbox") {
+	var newItem = document.createElement('input');
+	newItem.type = "checkbox";
+	newItem.id = item.id;
+	newItem.checked = item.checked;
+	newItem.title = item.title;
+    }
+
+    return newItem;
+}
 
 
 
