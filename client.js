@@ -100,7 +100,15 @@ mySocket.onmessage = function (event) {
 	var inputData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
 	document.body.replaceChild(createTopButtons({type: "user"}, inputData),
 				   document.getElementById("myDiv1"));
-	document.body.replaceChild(createListFrame(inputData),
+	document.body.replaceChild(createEditListFrame(inputData),
+				   document.getElementById("myDiv2"));
+    }
+
+    if(receivable.type == "createGenericListFrame") {	
+	var inputData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
+	document.body.replaceChild(createTopButtons({type: "user"}, inputData),
+				   document.getElementById("myDiv1"));
+	document.body.replaceChild(createFixedListFrame(inputData),
 				   document.getElementById("myDiv2"));
     }
 
@@ -109,11 +117,11 @@ mySocket.onmessage = function (event) {
 
 // ---------- Parse out UI elements from incoming message
 
-function createListFrame(inputData) {
+function createEditListFrame(inputData) {
     var fieldset = document.createElement('fieldsetset');
 
     fieldset.appendChild(document.createElement('br'));
-    fieldset.appendChild(createEditableItemlist(inputData));
+    fieldset.appendChild(createEditableItemList(inputData));
     fieldset.appendChild(document.createElement('br'));
     fieldset.appendChild(createAcceptButtons(inputData));
     fieldset.appendChild(document.createElement('br'));
@@ -121,18 +129,25 @@ function createListFrame(inputData) {
     return fieldset;
 }
 
-function createEditableItemlist(inputData) {
+function createFixedListFrame(inputData) {
+    var fieldset = document.createElement('fieldsetset');
+
+    fieldset.appendChild(document.createElement('br'));
+    fieldset.appendChild(createFixedItemList(inputData));
+    fieldset.appendChild(document.createElement('br'));
+    fieldset.id= "myDiv2";
+    return fieldset;
+}
+
+function createFixedItemList(inputData) {
     var table = document.createElement('table');
     var tableHeader = document.createElement('thead');
     var tableBody = document.createElement('tbody');
 
-    // itemList = { header: [ { text: text } ],
-    //              items: [ {} ] },
-    //              newItem;
-
     var hRow0 = tableHeader.insertRow();
-//    var cell = hRow0.insertCell();
-    hRow0.innerHTML = "<b>" + uiText(inputData.itemList.title) + "</b>";
+    var cell = hRow0.insertCell();
+    cell.colSpan = inputData.itemList.colSpan;
+    cell.innerHTML = "<b>" + uiText(inputData.itemList.title) + "</b>";
     var hRow1 = tableHeader.insertRow();
     hRow1.appendChild(document.createElement('td'));
     inputData.itemList.header.forEach(function(h) {
@@ -142,8 +157,42 @@ function createEditableItemlist(inputData) {
     });
     var count = 1;
     inputData.itemList.items.forEach(function(i) {
+	tableBody.appendChild(createTableItem(count, inputData, i));
+	count++;
+    });
+    table.appendChild(tableHeader);
+    table.appendChild(tableBody);
+    return table;
+}
+
+function createEditableItemList(inputData) {
+    var table = document.createElement('table');
+    var tableHeader = document.createElement('thead');
+    var tableBody = document.createElement('tbody');
+
+    console.log("inputData XXXX: " + JSON.stringify(inputData));
+
+    var hRow0 = tableHeader.insertRow();
+    var cell = hRow0.insertCell();
+    cell.colSpan = inputData.itemList.colSpan;
+    cell.innerHTML = "<b>" + uiText(inputData.itemList.title) + "</b>";
+    var hRow1 = tableHeader.insertRow();
+    hRow1.appendChild(document.createElement('td'));
+    inputData.itemList.header.forEach(function(h) {
+	var cell= hRow1.insertCell();
+	cell.innerHTML = "<b>" + uiText(h.text) + "</b>";
+	hRow1.appendChild(cell);
+    });
+    var count = 1;
+    inputData.itemList.items.forEach(function(i) {
+
+	console.log("h: " + JSON.stringify(i));
+
 	tableBody.appendChild(createEdittableItem(count, inputData, i, false));
 	count++;
+
+	console.log("count" + count);
+
     });
     var newItem = inputData.itemList.newItem;
     tableBody.appendChild(createEdittableItem(count, inputData, newItem, true));
@@ -156,8 +205,6 @@ function createAcceptButtons(inputData) {
     var table = document.createElement('table');
     var tableBody = document.createElement('tbody');
     var tableRow = tableBody.insertRow();    
-
-    // buttonlist = [ { id: buttonId, text: buttonText, callbackMessage: mesage } ];
 
     inputData.buttonList.forEach(function(b) {
 //	var cell = document.createElement('td');
@@ -175,15 +222,29 @@ function createAcceptButtons(inputData) {
     return table;
 }
 
+function createTableItem(count, inputData, item) {
+    var tableRow = document.createElement('tr');
+    var cell = document.createElement('td');
+    cell.appendChild(document.createTextNode(count));
+    tableRow.appendChild(cell);
+    item.forEach(function(c) {
+	var cell = document.createElement('td');
+	cell.appendChild(createTypedObject(c));
+	tableRow.appendChild(cell);
+    });
+    return tableRow;
+}
+
 function createEdittableItem(count, inputData, item, lastRow) {
     var tableRow = document.createElement('tr');
-
-    // item = [ { type: type, data: data } ]:
 
     var cell = document.createElement('td');
     cell.appendChild(document.createTextNode(count));
     tableRow.appendChild(cell);
     item.forEach(function(c) {
+
+	console.log("c: " + JSON.stringify(c));
+
 	var cell = document.createElement('td');
 	cell.appendChild(createTypedObject(c));
 	tableRow.appendChild(cell);
@@ -193,42 +254,88 @@ function createEdittableItem(count, inputData, item, lastRow) {
 	var addButton = document.createElement("button");
 	addButton.appendChild(document.createTextNode("Luo uusi"));
 	addButton.id = count;
-	addButton.onclick = function() { createNewItemToList(inputData, id, this); }
+	addButton.onclick = function() { createNewItemToList(inputData, this); }
 	lastCell.appendChild(addButton);
     } else {
 	var deleteButton = document.createElement("button");
 	deleteButton.appendChild(document.createTextNode("Poista"));
 	deleteButton.id = count;
-	deleteButton.onclick = function() { deleteItemFromList(inputData, id, this); }
+	deleteButton.onclick = function() { deleteItemFromList(inputData, this); }
 	lastCell.appendChild(deleteButton);
     }
     tableRow.appendChild(lastCell);
-
     return tableRow;
 }
 
-function createNewItemToList(inputData, id, button) {
+function createNewItemToList(inputData, button) {
+
+    console.log("button: " + JSON.stringify(button.id));
+
+    var newId = 1000;
+    var newItemList = [];
+    inputData.itemList.items.forEach(function(l) {
+	var newitemRow = [];
+	l.forEach(function(i) {
+	    newitemRow.push(getItemDefinitionAndValue(i.id, newId++));
+	});
+	newItemList.push(newitemRow);
+    });
+
+    var bottomItem = [];    
+    inputData.itemList.newItem.forEach(function(i) {
+	bottomItem.push(getItemDefinitionAndValue(i.id, newId++));
+    });
+    newItemList.push(bottomItem);
+
+    console.log("newItemList: " + JSON.stringify(newItemList));
+
+    var newNewItem = [];
+    inputData.itemList.newItem.forEach(function(i) {
+	i.id = newId++;
+	newNewItem.push(i);
+    });
+
+    console.log("newNewItem: " + JSON.stringify(newNewItem));
+
+    var newData = { user: inputData.user, priviliges: inputData.priviliges,
+		    itemList: { title: inputData.itemList.title, header: inputData.itemList.header,
+				items: newItemList, newItem: newNewItem },
+		    buttonList: inputData.buttonList };
+
+//    inputData.itemList.items = newItemList;
+//    inputData.itemList.newItem = newNewItem;
+
+    console.log("data: " + JSON.stringify(newData));
+
+    document.body.replaceChild(createEditListFrame(newData),
+			       document.getElementById("myDiv2"));
     return false;
 }
 
-function deleteItemFromList(inputData, id, button) {
-    var newlist = inputData.itemList.items.map(function(a,b) {
-	if(b != (button.id - 1)) { return a; }
+function deleteItemFromList(inputData, button) {
+    var newList = inputData.itemList.items.map(function(a,b) {
+	if(b != (button.id -1)) { return a; }
     }).filter(function(s){ return s; });
-    inputData.itemList = newlist;
+    inputData.itemList.items = newList;
 
-    document.body.replaceChild(createListFrame(inputData),
+    document.body.replaceChild(createEditListFrame(inputData),
 			       document.getElementById("myDiv2"));
     return false;
 }
 
 function createTypedObject(item) {
 
-//    console.log("item: " + JSON.stringify(item));
+    console.log("typed item: " + JSON.stringify(item));
 
     if(item.type === "textarea") {
+
+	console.log("111");
+
 	var newItem = document.createElement("textarea");
+	newItem.itemType = "textarea";
+	console.log("222");
 	newItem.id = item.id;
+	console.log("333");
 	newItem.setAttribute('cols', item.cols);
 	newItem.setAttribute('rows', item.rows);
 	newItem.value = item.value;
@@ -236,6 +343,7 @@ function createTypedObject(item) {
 
     if(item.type === "checkbox") {
 	var newItem = document.createElement('input');
+	newItem.itemType = "checkbox";
 	newItem.type = "checkbox";
 	newItem.id = item.id;
 	newItem.checked = item.checked;
@@ -257,6 +365,7 @@ function createTypedObject(item) {
 	    myOption.value = count++;
 	    newItem.add(myOption);
 	});
+	newItem.itemType = "selection";
 	newItem.id = item.id;
 	setSelectedItemInList(newItem, item.selected);
     }
@@ -264,6 +373,7 @@ function createTypedObject(item) {
     if(item.type === "button") {
 	var newItem = document.createElement('button');
 	newItem.appendChild(document.createTextNode(item.text));
+	newItem.itemType = "button";
 	newItem.id = item.id;
 	newItem.onclick = function() { sendToServerEncrypted(item.callbackMessage,
 							     { id: newItem.id });
@@ -283,6 +393,43 @@ function setSelectedItemInList(myList, myItem) {
     }).filter(function(f) {
        return f;
     })[0];
+}
+
+function getSelectedItemInList(selectionList) {
+    return  selectionList.options[selectionList.selectedIndex].item;
+}
+
+function getItemDefinitionAndValue(id, newId) {
+    var item = document.getElementById(id);
+
+    if(item.itemType === "textarea") {
+	return { itemType: "textarea",
+		 id: newId,
+		 cols: item.cols,
+		 rows: item.rows,
+		 value: item.value };
+    }
+
+    if(item.itemType === "checkbox") {
+	return { itemType: "checkbox",
+		 id: newId,
+		 checked: item.checked,
+		 title: item.title };
+    }
+
+    if(item.itemType === "selection") {
+	return { itemType: "selection",
+		 id: newId,
+		 list: item.list,
+		 selected: getSelectedItemInList(item) };
+    }
+
+    if(item.itemType === "button") {
+	return { itemType: "button",
+		 id: newId,
+		 text: item.text,
+		 callbackMessage: item.callbackMessage };
+    }
 }
 
 

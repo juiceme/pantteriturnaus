@@ -375,12 +375,10 @@ function sendTournamentMainData(cookie) {
 	return { name: t.name, locked: t.locked };
     });
 
-    var buttonList =  [ { id: 55, text: "OK", callbackMessage: "sendOkMessage" },
-			{ id: 30, text: "Cancel", callbackMessage: "sendCancelMessage" },
-			{ id: 66, text: "Help", callbackMessage: "sendHelpMssage" } ];
-    var itemList = { title: "Hei Paappa Ripa",
+/*
+    var itemList = { title: "Mun Mummuni Muni Mun Mammani", colSpan: 4,
 		     header: [ { text: "1 sarake" },  { text: "toinen sarake" }, { text: "viimonen sarake" } ],
-                     items: [ [ { type: "textarea", id: 123, cols: 10, rows: 1, value: "baa" },
+		     items: [ [ { type: "textarea", id: 123, cols: 10, rows: 1, value: "baa" },
 				{ type: "textarea", id: 124, cols: 10, rows: 1, value: "moomoo" },
 				{ type: "textarea", id: 125, cols: 10, rows: 1, value: "liiblaaba" } ],
 			      [ { type: "checkbox", id: 133, checked: true, title: "jiihaa" },
@@ -392,16 +390,42 @@ function sendTournamentMainData(cookie) {
 								      { text: "a", item: "a" },
 								      { text: "b", item: "b" } ],
 				  selected: "2" },
-				{ type: "button", id: 145, text: "paina mua!", callbackMessage: "sendKeyPress" } ] ],
-		     newItem: [ { type: "textarea", id: 153, cols: 10, rows: 1, value: "<default>" },
-				{ type: "textarea", id: 154, cols: 10, rows: 1, value: "<fault>" },
-				{ type: "textarea", id: 155, cols: 10, rows: 1, value: "<de>" } ] };
+				{ type: "button", id: 145, text: "paina mua!", callbackMessage: "sendKeyPress" } ] ] };
+
+    sendable = { type: "createGenericListFrame",
+		 content: { user: cookie.user.username,
+			    priviliges: cookie.user.applicationData.priviliges,
+			    itemList: itemList } };
+
+*/
+    var buttonList =  [ { id: 55, text: "OK", callbackMessage: "sendOkMessage" },
+			{ id: 30, text: "Cancel", callbackMessage: "sendCancelMessage" },
+			{ id: 66, text: "Help", callbackMessage: "sendHelpMssage" } ];
+    var itemList = { title: "Hei Paappa Ripa", colSpan: 5,
+		     header: [ { text: "1 sarake" },  { text: "toinen sarake" }, { text: "viimonen sarake" } ],
+                     items: [ [ { type: "textarea", id: 1, cols: 10, rows: 1, value: "baa" },
+				{ type: "textarea", id: 2, cols: 10, rows: 1, value: "moomoo" },
+				{ type: "textarea", id: 3, cols: 10, rows: 1, value: "liiblaaba" } ],
+			      [ { type: "checkbox", id: 4, checked: true, title: "jiihaa" },
+				{ type: "checkbox", id: 5, checked: false, title: "HiHaHoHu"  },
+				{ type: "textarea", id: 6, cols: 10, rows: 1, value: "12345" } ],
+			      [ { type: "textarea", id: 7, cols: 10, rows: 1, value: "v" },
+				{ type: "selection", id: 8, list: [ { text: "1", item: "1" },
+								      { text: "2", item: "2" },
+								      { text: "a", item: "a" },
+								      { text: "b", item: "b" } ],
+				  selected: "2" },
+				{ type: "button", id: 9, text: "paina mua!", callbackMessage: "sendKeyPress" } ] ],
+		     newItem: [ { type: "textarea", id: 10, cols: 10, rows: 1, value: "<default>" },
+				{ type: "textarea", id: 11, cols: 10, rows: 1, value: "<fault>" },
+				{ type: "textarea", id: 12, cols: 10, rows: 1, value: "<de>" } ] };
 
     sendable = { type: "createGenericEditFrame",
 		 content: { user: cookie.user.username,
 			    priviliges: cookie.user.applicationData.priviliges,
 			    itemList: itemList,
 			    buttonList: buttonList } };
+
 
 
 //    sendable = { type: "tournamentMainData",
