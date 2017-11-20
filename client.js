@@ -170,11 +170,9 @@ function createEditableItemList(inputData) {
     var tableHeader = document.createElement('thead');
     var tableBody = document.createElement('tbody');
 
-    console.log("inputData XXXX: " + JSON.stringify(inputData));
-
     var hRow0 = tableHeader.insertRow();
     var cell = hRow0.insertCell();
-    cell.colSpan = inputData.itemList.colSpan;
+    cell.colSpan = inputData.itemList.header.length + 2;
     cell.innerHTML = "<b>" + uiText(inputData.itemList.title) + "</b>";
     var hRow1 = tableHeader.insertRow();
     hRow1.appendChild(document.createElement('td'));
@@ -185,14 +183,8 @@ function createEditableItemList(inputData) {
     });
     var count = 1;
     inputData.itemList.items.forEach(function(i) {
-
-	console.log("h: " + JSON.stringify(i));
-
 	tableBody.appendChild(createEdittableItem(count, inputData, i, false));
 	count++;
-
-	console.log("count" + count);
-
     });
     var newItem = inputData.itemList.newItem;
     tableBody.appendChild(createEdittableItem(count, inputData, newItem, true));
@@ -242,9 +234,6 @@ function createEdittableItem(count, inputData, item, lastRow) {
     cell.appendChild(document.createTextNode(count));
     tableRow.appendChild(cell);
     item.forEach(function(c) {
-
-	console.log("c: " + JSON.stringify(c));
-
 	var cell = document.createElement('td');
 	cell.appendChild(createTypedObject(c));
 	tableRow.appendChild(cell);
@@ -268,9 +257,6 @@ function createEdittableItem(count, inputData, item, lastRow) {
 }
 
 function createNewItemToList(inputData, button) {
-
-    console.log("button: " + JSON.stringify(button.id));
-
     var newId = 1000;
     var newItemList = [];
     inputData.itemList.items.forEach(function(l) {
@@ -280,23 +266,16 @@ function createNewItemToList(inputData, button) {
 	});
 	newItemList.push(newitemRow);
     });
-
     var bottomItem = [];    
     inputData.itemList.newItem.forEach(function(i) {
 	bottomItem.push(getItemDefinitionAndValue(i.id, newId++));
     });
     newItemList.push(bottomItem);
-
-    console.log("newItemList: " + JSON.stringify(newItemList));
-
     var newNewItem = [];
     inputData.itemList.newItem.forEach(function(i) {
 	i.id = newId++;
 	newNewItem.push(i);
     });
-
-    console.log("newNewItem: " + JSON.stringify(newNewItem));
-
     var newData = { user: inputData.user, priviliges: inputData.priviliges,
 		    itemList: { title: inputData.itemList.title, header: inputData.itemList.header,
 				items: newItemList, newItem: newNewItem },
@@ -304,8 +283,6 @@ function createNewItemToList(inputData, button) {
 
 //    inputData.itemList.items = newItemList;
 //    inputData.itemList.newItem = newNewItem;
-
-    console.log("data: " + JSON.stringify(newData));
 
     document.body.replaceChild(createEditListFrame(newData),
 			       document.getElementById("myDiv2"));
@@ -325,23 +302,16 @@ function deleteItemFromList(inputData, button) {
 
 function createTypedObject(item) {
 
-    console.log("typed item: " + JSON.stringify(item));
-
-    if(item.type === "textarea") {
-
-	console.log("111");
-
+    if(item.itemType === "textarea") {
 	var newItem = document.createElement("textarea");
 	newItem.itemType = "textarea";
-	console.log("222");
 	newItem.id = item.id;
-	console.log("333");
 	newItem.setAttribute('cols', item.cols);
 	newItem.setAttribute('rows', item.rows);
 	newItem.value = item.value;
     }
 
-    if(item.type === "checkbox") {
+    if(item.itemType === "checkbox") {
 	var newItem = document.createElement('input');
 	newItem.itemType = "checkbox";
 	newItem.type = "checkbox";
@@ -350,35 +320,47 @@ function createTypedObject(item) {
 	newItem.title = item.title;
     }
 
-    if(item.type === "selection") {
+    if(item.itemType === "selection") {
 	var newItem = document.createElement('select');
 	var myOption = document.createElement('option');
+	var literalList = [];
+	var zeroOption = { text: "", item: "", value: 0 };
 	myOption.text = "";
 	myOption.item = "";
 	myOption.value = 0;
+	literalList.push(zeroOption);
 	newItem.add(myOption);
 	var count = 1;
 	item.list.forEach(function(i) {
 	    var myOption = document.createElement('option');
+	    var nOption = { text: i.text, item: i.item, value: count };
 	    myOption.text = i.text;
 	    myOption.item = i.item;
-	    myOption.value = count++;
+	    myOption.value = count;
+	    literalList.push(nOption);
 	    newItem.add(myOption);
+	    count++;
 	});
 	newItem.itemType = "selection";
 	newItem.id = item.id;
+	newItem.literalList = literalList;
 	setSelectedItemInList(newItem, item.selected);
     }
 
-    if(item.type === "button") {
-	var newItem = document.createElement('button');
-	newItem.appendChild(document.createTextNode(item.text));
+    if(item.itemType === "button") {
+	var newItem = document.createElement('div');
 	newItem.itemType = "button";
 	newItem.id = item.id;
-	newItem.onclick = function() { sendToServerEncrypted(item.callbackMessage,
-							     { id: newItem.id });
-				       return false;
-				     };
+	newItem.text = item.text;
+	newItem.callbackMessage = item.callbackMessage;
+
+	var button = document.createElement('button');
+	button.appendChild(document.createTextNode(item.text));
+	button.onclick = function() { sendToServerEncrypted(item.callbackMessage,
+							    { id: item.id });
+				      return false;
+				    };
+	newItem.appendChild(button);
     }
 
     return newItem;
@@ -420,7 +402,7 @@ function getItemDefinitionAndValue(id, newId) {
     if(item.itemType === "selection") {
 	return { itemType: "selection",
 		 id: newId,
-		 list: item.list,
+		 list: item.literalList.map(function(i) { return { text: i.text, item: i.item }; }),
 		 selected: getSelectedItemInList(item) };
     }
 
