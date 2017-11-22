@@ -141,7 +141,6 @@ function processClientStarted(cookie) {
     cookie.aesKey = "";
     cookie.user = {};
     cookie.challenge = "";
-    cookie.currentTournament = "";
     var sendable = { type: "loginView" }
     sendPlainTextToClient(cookie, sendable);
     setStatustoClient(cookie, "Login");
@@ -166,7 +165,6 @@ function processUserLogin(cookie, content) {
 	    var plainChallenge = getNewChallenge();
 	    servicelog("plainChallenge:   " + plainChallenge);
 	    cookie.challenge = JSON.stringify(plainChallenge);
-	    cookie.currentTournament = "";
 	    sendable = { type: "loginChallenge",
 			 content: plainChallenge };
 	    sendCipherTextToClient(cookie, sendable);
@@ -182,8 +180,12 @@ function processLoginResponse(cookie, content) {
 	setState(cookie, "loggedIn");
 	setStatustoClient(cookie, "Login OK");
 	if(getUserPriviliges(cookie.user).length === 0) {
+	    // for unpriviliged login, only send logout button and nothing more
 	    sendable = { type: "unpriviligedLogin",
-			 content: "" };
+			 content: { topButtonList: [ { id: 100,
+						       text: "Kirjaudu Ulos",
+						       callbackMessage: "clientStarted" } ] } };
+
 	    sendCipherTextToClient(cookie, sendable);
 	    servicelog("Sent unpriviligedLogin info to client #" + cookie.count);
 	} else {
@@ -197,9 +199,19 @@ function processLoginResponse(cookie, content) {
 
 function processTournamentDataShow(cookie, content) {
     var sendable;
-    var tournamentName = JSON.parse(Aes.Ctr.decrypt(content, cookie.user.password, 128));
-    servicelog("Client #" + cookie.count + " requests tournament show: " + JSON.stringify(tournamentName));
-    if(userHasViewPrivilige(cookie.user)) {
+    var data = JSON.parse(Aes.Ctr.decrypt(content, cookie.user.password, 128));
+    try {
+	var tournamentName = data.inputData.itemList.items.map(function(d) {
+	    if(d[1].id===data.buttonId) {
+		return d[0].text;
+	    }
+	}).filter(function(f){return f})[0];
+    } catch(err) {
+	servicelog("Cannot parse tournament name: " + err);
+	return;
+    }
+    servicelog("Client #" + cookie.count + " requests tournament show: " + tournamentName);
+    if(userHasViewPrivilige(cookie.user)) {	
 	var tournmentWebPage = new Buffer(createPreviewHtmlPage(getTournamentDataByName(tournamentName)));
 	sendable = { type: "showTournament",
 		     content: tournmentWebPage.toString("base64") };
@@ -230,17 +242,20 @@ function processAllTournamentsDataEdit(cookie, content) {
 
 function processOneTournamentScoresEdit(cookie, content) {
     var sendable;
-    var tournamentName = JSON.parse(Aes.Ctr.decrypt(content, cookie.user.password, 128));
-    servicelog("Client #" + cookie.count + " requests tournament scores edit: " + JSON.stringify(tournamentName));
+    var data = JSON.parse(Aes.Ctr.decrypt(content, cookie.user.password, 128));
+    try {
+	var tournamentName = data.inputData.itemList.items.map(function(d) {
+	    if(d[2].id===data.buttonId) {
+		return d[0].text;
+	    }
+	}).filter(function(f){return f})[0];
+    } catch(err) {
+	servicelog("Cannot parse tournament name: " + err);
+	return;
+    }
+    servicelog("Client #" + cookie.count + " requests tournament scores edit: " + tournamentName);
     if(userHasEditScoresPrivilige(cookie.user)) {
-	var t = getTournamentDataByName(tournamentName);
-	sendable = { type: "editOneTournamentScores",
-		     content: { user: cookie.user.username,
-				priviliges: cookie.user.applicationData.priviliges,
-				tournament: { name: t.name, locked: t.locked, games: t.games },
-				teams: datastorage.read("teams").teams } };
-	sendCipherTextToClient(cookie, sendable);
-	cookie.currentTournament = tournamentName;
+	sendOneTournamentForScoresEdit(cookie, getTournamentDataByName(tournamentName));
     } else {
 	servicelog("user has insufficent priviliges to edit tournament scores");
     }
@@ -258,7 +273,6 @@ function processTournamentDataEditByName(cookie, content) {
 				tournament: { name: t.name, locked: t.locked, games: t.games },
 				teams: datastorage.read("teams").teams } };
 	sendCipherTextToClient(cookie, sendable);
-	cookie.currentTournament = tournamentName;
     } else {
 	servicelog("user has insufficent priviliges to edit tournament data");
     }
@@ -363,6 +377,36 @@ function processResetToMainState(cookie, content) {
 
 /**********/
 
+function createUiTextNode(id, text) {
+    return { itemType: "textnode", id: id, text: text };
+}
+
+function createUiTextArea(id, value, cols, rows) {
+    if(cols === undefined) { cols = 10; }
+    if(rows === undefined) { rows = 1; }
+    return { itemType: "textarea", id: id, value: value, cols: cols, rows: rows };
+}
+
+function createUiCheckBox(id, checked, title) {
+    if(title === undefined) { title = ""; }
+    return { itemType: "checkbox", id: id, checked: checked, title: title };
+}
+
+function createUiSelectionList(id, list, selected) {
+    var listItems = list.map(function(i) {
+	return { text: i, item: i }
+    }).filter(function(f) { return f; });
+
+    return { itemType: "selection", id: id, list: listItems, selected: selected };
+}
+
+function createUiButton(id, text, callbackMessage) {
+    return { itemType: "button", id: id, text: text, callbackMessage: callbackMessage };
+}
+
+
+/**********/
+
 function getTournamentDataByName(name) {
     return datastorage.read("tournaments").tournaments.map(function(t) {
 	if(t.name === name) { return t;}
@@ -371,70 +415,85 @@ function getTournamentDataByName(name) {
 
 function sendTournamentMainData(cookie) {
     var sendable;
+    var topButtonList = [ { id: 101, text: "Kirjaudu Ulos", callbackMessage: "clientStarted" } ];
+    if(userHasEditTeamsPrivilige(cookie.user)) {
+	topButtonList.push( { id: 102, text: "Muokkaa Joukkueita", callbackMessage: "getTeamsDataForEdit" } );
+    }
+    if(userHasEditTournamentsPrivilige(cookie.user)) {
+	topButtonList.push( { id: 103, text: "Muokkaa Turnauksia", callbackMessage: "getTournamentsDataForEdit" } );
+    }
+    if(userHasSysAdminPrivilige(cookie.user)) {
+	topButtonList.push( { id: 104, text: "Admin Mode", callbackMessage: "gainAdminMode" } );
+    }
+
     var tournaments = datastorage.read("tournaments").tournaments.map(function(t) {
 	return { name: t.name, locked: t.locked };
     });
 
-/*
-    var itemList = { title: "Mun Mummuni Muni Mun Mammani",
-		     header: [ { text: "1 sarake" },  { text: "toinen sarake" }, { text: "viimonen sarake" } ],
-		     items: [ [ { itemType: "textarea", id: 123, cols: 10, rows: 1, value: "baa" },
-				{ itemType: "textarea", id: 124, cols: 10, rows: 1, value: "moomoo" },
-				{ itemType: "textarea", id: 125, cols: 10, rows: 1, value: "liiblaaba" } ],
-			      [ { itemType: "checkbox", id: 133, checked: true, title: "jiihaa" },
-				{ itemType: "checkbox", id: 134, checked: false, title: "HiHaHoHu"  },
-				{ itemType: "textarea", id: 135, cols: 10, rows: 1, value: "12345" } ],
-			      [ { itemType: "textarea", id: 143, cols: 10, rows: 1, value: "v" },
-				{ itemType: "selection", id: 144, list: [ { text: "1", item: "1" },
-								      { text: "2", item: "2" },
-								      { text: "a", item: "a" },
-								      { text: "b", item: "b" } ],
-				  selected: "2" },
-				{ itemType: "button", id: 145, text: "paina mua!", callbackMessage: "sendKeyPress" } ] ] };
+    var items = [];
+    var count = 201;
+    tournaments.forEach(function(t) {
+	items.push([ createUiTextNode(count++, t.name),
+		     createUiButton(count++, "Tulokset", "getTournamentDataForShow"),
+		     createUiButton(count++, "Muokkaa", "getOneTournamentScoresForEdit") ]);
+    });
+
+    var itemList = { title: "Tournament",
+		     header: [ { text: "" }, { text: "" }, { text: "" } ],
+		     items: items };
 
     sendable = { type: "createGenericListFrame",
 		 content: { user: cookie.user.username,
 			    priviliges: cookie.user.applicationData.priviliges,
+			    topButtonList: topButtonList,
 			    itemList: itemList } };
-
-*/
-    var buttonList =  [ { id: 55, text: "OK", callbackMessage: "sendOkMessage" },
-			{ id: 30, text: "Cancel", callbackMessage: "sendCancelMessage" },
-			{ id: 66, text: "Help", callbackMessage: "sendHelpMssage" } ];
-    var itemList = { title: "Hei Paappa Ripa",
-		     header: [ { text: "1 sarake" },  { text: "toinen sarake" }, { text: "viimonen sarake" } ],
-                     items: [ [ { itemType: "textarea", id: 1, cols: 10, rows: 1, value: "baa" },
-				{ itemType: "textarea", id: 2, cols: 10, rows: 1, value: "moomoo" },
-				{ itemType: "textarea", id: 3, cols: 10, rows: 1, value: "liiblaaba" } ],
-			      [ { itemType: "checkbox", id: 4, checked: true, title: "jiihaa" },
-				{ itemType: "checkbox", id: 5, checked: false, title: "HiHaHoHu"  },
-				{ itemType: "textarea", id: 6, cols: 10, rows: 1, value: "12345" } ],
-			      [ { itemType: "textarea", id: 7, cols: 10, rows: 1, value: "v" },
-				{ itemType: "selection", id: 8, list: [ { text: "1", item: "1" },
-								      { text: "2", item: "2" },
-								      { text: "a", item: "a" },
-								      { text: "b", item: "b" } ],
-				  selected: "2" },
-				{ itemType: "button", id: 9, text: "paina mua!", callbackMessage: "sendKeyPress" } ] ],
-		     newItem: [ { itemType: "textarea", id: 10, cols: 10, rows: 1, value: "<default>" },
-				{ itemType: "textarea", id: 11, cols: 10, rows: 1, value: "<fault>" },
-				{ itemType: "textarea", id: 12, cols: 10, rows: 1, value: "<de>" } ] };
-
-    sendable = { type: "createGenericEditFrame",
-		 content: { user: cookie.user.username,
-			    priviliges: cookie.user.applicationData.priviliges,
-			    itemList: itemList,
-			    buttonList: buttonList } };
-
-
-
-//    sendable = { type: "tournamentMainData",
-//		 content: { user: cookie.user.username,
-//			    priviliges: cookie.user.applicationData.priviliges,
-//			    tournaments: tournaments } };
 
     sendCipherTextToClient(cookie, sendable);
     servicelog("Sent NEW tournamentMainData to client #" + cookie.count);
+}
+
+function sendOneTournamentForScoresEdit(cookie, tournament) {
+    var sendable;
+    var topButtonList = [ { id: 101, text: "Kirjaudu Ulos", callbackMessage: "clientStarted" } ];
+    if(userHasEditTeamsPrivilige(cookie.user)) {
+	topButtonList.push( { id: 102, text: "Muokkaa Joukkueita", callbackMessage: "getTeamsDataForEdit" } );
+    }
+    if(userHasEditTournamentsPrivilige(cookie.user)) {
+	topButtonList.push( { id: 103, text: "Muokkaa Turnauksia", callbackMessage: "getTournamentsDataForEdit" } );
+    }
+    if(userHasSysAdminPrivilige(cookie.user)) {
+	topButtonList.push( { id: 104, text: "Admin Mode", callbackMessage: "gainAdminMode" } );
+    }
+
+    console.log(JSON.stringify(tournament));
+
+    var items = [];
+    var count = 201;
+    tournament.games.forEach(function(t) {
+	items.push([ createUiTextNode(count++, t.time),
+		     createUiTextNode(count++, t.home),
+		     createUiTextNode(count++, t.guest),
+		     createUiTextNode(count++, t.result),
+		     createUiButton(count++, "Muokkaa", "getOneMatchScoresForEdit") ]);
+    });
+
+    var itemList = { title: tournament.name,
+		     header: [ { text: "Aika" }, { text: "Koti" }, { text: "Vieras" },
+			       { text: "Tulos" }, {text: ""} ],
+		     items: items };
+
+    var buttonList =  [ { id: 501, text: "OK", callbackMessage: "sendOkMessage" },
+			{ id: 502, text: "Cancel", callbackMessage: "resetToMain" } ];
+
+    sendable = { type: "createGenericListFrame",
+		 content: { user: cookie.user.username,
+			    priviliges: cookie.user.applicationData.priviliges,
+			    topButtonList: topButtonList,
+			    itemList: itemList,
+			    buttonList: buttonList } };
+			    
+    sendCipherTextToClient(cookie, sendable);
+    servicelog("Sent NEW editTournamentScores to client #" + cookie.count);
 }
 
 function updateTournamentFromClient(cookie, tournament) {

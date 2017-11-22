@@ -34,8 +34,8 @@ mySocket.onmessage = function (event) {
 
     if(receivable.type == "unpriviligedLogin") {
 	var loginData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
-	document.body.replaceChild(createTopButtons({type: "unpriviliged"}, false),
-				   document.getElementById("myDiv1"));
+	document.body.replaceChild(createTopButtons(loginData), document.getElementById("myDiv1"));
+	document.body.replaceChild(document.createElement("div"), document.getElementById("myDiv2"));
     }
 
     if(receivable.type == "tournamentMainData") {
@@ -98,16 +98,14 @@ mySocket.onmessage = function (event) {
 
     if(receivable.type == "createGenericEditFrame") {	
 	var inputData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
-	document.body.replaceChild(createTopButtons({type: "user"}, inputData),
-				   document.getElementById("myDiv1"));
+	document.body.replaceChild(createTopButtons(inputData), document.getElementById("myDiv1"));
 	document.body.replaceChild(createEditListFrame(inputData),
 				   document.getElementById("myDiv2"));
     }
 
     if(receivable.type == "createGenericListFrame") {	
 	var inputData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
-	document.body.replaceChild(createTopButtons({type: "user"}, inputData),
-				   document.getElementById("myDiv1"));
+	document.body.replaceChild(createTopButtons(inputData), document.getElementById("myDiv1"));
 	document.body.replaceChild(createFixedListFrame(inputData),
 				   document.getElementById("myDiv2"));
     }
@@ -135,6 +133,10 @@ function createFixedListFrame(inputData) {
     fieldset.appendChild(document.createElement('br'));
     fieldset.appendChild(createFixedItemList(inputData));
     fieldset.appendChild(document.createElement('br'));
+    if(inputData.buttonList !== undefined) {
+	fieldset.appendChild(createAcceptButtons(inputData));
+	fieldset.appendChild(document.createElement('br'));
+    }
     fieldset.id= "myDiv2";
     return fieldset;
 }
@@ -146,8 +148,8 @@ function createFixedItemList(inputData) {
 
     var hRow0 = tableHeader.insertRow();
     var cell = hRow0.insertCell();
-    cell.colSpan = inputData.itemList.colSpan;
-    cell.innerHTML = "<b>" + uiText(inputData.itemList.title) + "</b>";
+    cell.colSpan = inputData.itemList.header.length + 2;
+    cell.innerHTML = "<b>" + inputData.itemList.title + "</b>";
     var hRow1 = tableHeader.insertRow();
     hRow1.appendChild(document.createElement('td'));
     inputData.itemList.header.forEach(function(h) {
@@ -193,6 +195,29 @@ function createEditableItemList(inputData) {
     return table;
 }
 
+function createTopButtons(inputData) {
+    var table = document.createElement('table');
+    var tableBody = document.createElement('tbody');
+    var tableRow = tableBody.insertRow();    
+
+    inputData.topButtonList.forEach(function(b) {
+//	var cell = document.createElement('td');
+	var button = document.createElement('button');
+	button.appendChild(document.createTextNode(b.text));
+	button.id = b.id;
+	button.onclick = function() {
+	    sendToServerEncrypted(b.callbackMessage, inputData);
+	    return false;
+	};
+//	cell.appendChild(button);
+	tableRow.appendChild(button);
+    });
+    table.appendChild(tableBody);
+    table.id = "myDiv1";
+
+    return table;
+}
+
 function createAcceptButtons(inputData) {
     var table = document.createElement('table');
     var tableBody = document.createElement('tbody');
@@ -204,7 +229,7 @@ function createAcceptButtons(inputData) {
 	button.appendChild(document.createTextNode(b.text));
 	button.id = b.id;
 	button.onclick = function() {
-	    sendToServerEncrypted(b.callbackMessage, inputData.itemList);
+	    sendToServerEncrypted(b.callbackMessage, inputData);
 	    return false;
 	};
 //	cell.appendChild(button);
@@ -221,7 +246,7 @@ function createTableItem(count, inputData, item) {
     tableRow.appendChild(cell);
     item.forEach(function(c) {
 	var cell = document.createElement('td');
-	cell.appendChild(createTypedObject(c));
+	cell.appendChild(createTypedObject(c, inputData));
 	tableRow.appendChild(cell);
     });
     return tableRow;
@@ -235,7 +260,7 @@ function createEdittableItem(count, inputData, item, lastRow) {
     tableRow.appendChild(cell);
     item.forEach(function(c) {
 	var cell = document.createElement('td');
-	cell.appendChild(createTypedObject(c));
+	cell.appendChild(createTypedObject(c, inputData));
 	tableRow.appendChild(cell);
     });
     var lastCell = document.createElement('td');
@@ -300,7 +325,14 @@ function deleteItemFromList(inputData, button) {
     return false;
 }
 
-function createTypedObject(item) {
+function createTypedObject(item, inputData) {
+
+    if(item.itemType === "textnode") {
+	var newItem = document.createElement('div');
+	newItem.itemType = "textnode";
+	newItem.id = item.id;
+	newItem.appendChild(document.createTextNode(item.text));
+    }
 
     if(item.itemType === "textarea") {
 	var newItem = document.createElement("textarea");
@@ -357,7 +389,8 @@ function createTypedObject(item) {
 	var button = document.createElement('button');
 	button.appendChild(document.createTextNode(item.text));
 	button.onclick = function() { sendToServerEncrypted(item.callbackMessage,
-							    { id: item.id });
+							    { buttonId: item.id,
+							      inputData: inputData });
 				      return false;
 				    };
 	newItem.appendChild(button);
@@ -1611,6 +1644,7 @@ function createLoginView() {
 
 // ---------- main button panel, always visible
 
+/*
 function createTopButtons(mode, tournamentData) {
     var buttonBox = document.createElement("fieldset");
     buttonBox.id = "myDiv1";
@@ -1656,3 +1690,5 @@ function editTeams() {
     sendToServerEncrypted("getTeamsDataForEdit", "none");
     return false;
 }
+
+*/
