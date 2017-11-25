@@ -104,8 +104,8 @@ wsServer.on('request', function(request) {
 	       stateIs(cookie, "loggedIn")) { processSaveAllTournamentsData(cookie, content); }
 	    if((type === "saveTournamentGameData") &&
 	       stateIs(cookie, "loggedIn")) { processSaveTournamentGameData(cookie, content); }
-	    if((type === "adminMode") &&
-	       stateIs(cookie, "loggedIn")) { processAdminMode(cookie, content); }
+	    if((type === "gainAdminMode") &&
+	       stateIs(cookie, "loggedIn")) { processGainAdminMode(cookie, content); }
 	    if((type === "saveAdminData") &&
 	       stateIs(cookie, "loggedIn")) { processSaveAdminData(cookie, content); }
 	    if((type === "saveTeamData") &&
@@ -330,14 +330,56 @@ function processSaveTournamentGameData(cookie, content) {
     sendTournamentMainData(cookie);
 }
 
-function processAdminMode(cookie, content) {
+function processGainAdminMode(cookie, content) {
     servicelog("Client #" + cookie.count + " requests Sytem Administration priviliges");
     if(userHasSysAdminPrivilige(cookie.user)) {
-	servicelog("Granted Sytem Administration priviliges to user " + cookie.user.username);
-	sendable = { type: "adminData",
-		     content: createAdminData(cookie) };
+	servicelog("Granting Sytem Administration priviliges to user " + cookie.user.username);
+	var sendable;
+	var topButtonList =  createTopButtonList(cookie);
+
+	var items = [];
+	var count = 301;
+	datastorage.read("users").users.forEach(function(u) {
+	    items.push([ createUiTextNode(count++, u.username),
+			 createUiTextArea(count++, u.realname, 25),
+			 createUiTextArea(count++, u.email, 30),
+			 createUiTextArea(count++, u.phone, 15),
+			 createUiCheckBoxGroup( [ { id:count++, checked: userHasViewPrivilige(u),
+						    title: "view" },
+						  { id:count++, checked: userHasEditScoresPrivilige(u),
+						    title: "scores" },
+						  { id:count++, checked: userHasEditTeamsPrivilige(u),
+						    title: "teams" },
+						  { id:count++, checked: userHasEditTournamentsPrivilige(u),
+						    title: "tournements" },
+						  { id:count++, checked: userHasSysAdminPrivilige(u),
+						    title: "admin" } ] ) ] )
+	});
+
+	var itemList = { title: "User Admin Data",
+			 header: [ { text: "username" }, { text: "realname" }, { text: "email" },
+				   { text: "phone" }, { text: "V / S / Te / To / A" } ],
+			 items: items,
+			 newItem: [ createUiTextArea(count++, "<username>"),
+				    createUiTextArea(count++, "<realname>", 25),
+				    createUiTextArea(count++, "<email>", 30),
+				    createUiTextArea(count++, "<phone>", 15),
+				    createUiCheckBoxGroup( [ { id:count++, checked: false, title: "view" },
+							     { id:count++, checked: false, title: "scores" },
+							     { id:count++, checked: false, title: "teams" },
+							     { id:count++, checked: false, title: "tournaments" },
+							     { id:count++, checked: false, title: "admin" } ] ) ] };
+
+	sendable = { type: "createGenericEditFrame",
+		     content: { user: cookie.user.username,
+				priviliges: cookie.user.applicationData.priviliges,
+				topButtonList: topButtonList,
+				itemList: itemList,
+				buttonList: [ { id: 501, text: "OK", callbackMessage: "hilipatipippan" } ] } };
+
 	sendCipherTextToClient(cookie, sendable);
-	servicelog("Sent adminData to client #" + cookie.count);
+	servicelog("Sent NEW adminData to client #" + cookie.count);
+
     } else {
 	servicelog("user " + cookie.user.username + " does not have Sytem Administration priviliges!");
 	processClientStarted(cookie);
@@ -392,6 +434,10 @@ function createUiCheckBox(id, checked, title) {
     return { itemType: "checkbox", id: id, checked: checked, title: title };
 }
 
+function createUiCheckBoxGroup(checkBoxList) {
+    return { itemType: "checkboxlist", checkBoxList: checkBoxList };
+}
+
 function createUiSelectionList(id, list, selected) {
     var listItems = list.map(function(i) {
 	return { text: i, item: i }
@@ -413,8 +459,7 @@ function getTournamentDataByName(name) {
     }).filter(function(f){return f;})[0];
 }
 
-function sendTournamentMainData(cookie) {
-    var sendable;
+function createTopButtonList(cookie) {
     var topButtonList = [ { id: 101, text: "Kirjaudu Ulos", callbackMessage: "clientStarted" } ];
     if(userHasEditTeamsPrivilige(cookie.user)) {
 	topButtonList.push( { id: 102, text: "Muokkaa Joukkueita", callbackMessage: "getTeamsDataForEdit" } );
@@ -425,6 +470,12 @@ function sendTournamentMainData(cookie) {
     if(userHasSysAdminPrivilige(cookie.user)) {
 	topButtonList.push( { id: 104, text: "Admin Mode", callbackMessage: "gainAdminMode" } );
     }
+    return topButtonList;
+}
+
+function sendTournamentMainData(cookie) {
+    var sendable;
+    var topButtonList =  createTopButtonList(cookie);
 
     var tournaments = datastorage.read("tournaments").tournaments.map(function(t) {
 	return { name: t.name, locked: t.locked };
@@ -454,16 +505,7 @@ function sendTournamentMainData(cookie) {
 
 function sendOneTournamentForScoresEdit(cookie, tournament) {
     var sendable;
-    var topButtonList = [ { id: 101, text: "Kirjaudu Ulos", callbackMessage: "clientStarted" } ];
-    if(userHasEditTeamsPrivilige(cookie.user)) {
-	topButtonList.push( { id: 102, text: "Muokkaa Joukkueita", callbackMessage: "getTeamsDataForEdit" } );
-    }
-    if(userHasEditTournamentsPrivilige(cookie.user)) {
-	topButtonList.push( { id: 103, text: "Muokkaa Turnauksia", callbackMessage: "getTournamentsDataForEdit" } );
-    }
-    if(userHasSysAdminPrivilige(cookie.user)) {
-	topButtonList.push( { id: 104, text: "Admin Mode", callbackMessage: "gainAdminMode" } );
-    }
+    var topButtonList =  createTopButtonList(cookie);
 
     console.log(JSON.stringify(tournament));
 
@@ -831,10 +873,6 @@ function getUserByHashedName(hash) {
     return readUserData().users.filter(function(u) {
 	return u.hash === hash;
     });
-}
-
-function createAdminData(cookie) {
-    return { users: datastorage.read("users").users };
 }
 
 // datastorage.setLogger(servicelog);

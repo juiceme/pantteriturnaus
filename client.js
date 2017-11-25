@@ -87,8 +87,7 @@ mySocket.onmessage = function (event) {
 
     if(receivable.type == "adminData") {
 	var adminData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
-	document.body.replaceChild(createTopButtons({type: "admin"}, false),
-				   document.getElementById("myDiv1"));
+//	document.body.replaceChild(createTopButtons(adminData), document.getElementById("myDiv1"));
 	document.body.replaceChild(createAdminView(adminData),
 				   document.getElementById("myDiv2"));
     }
@@ -254,8 +253,8 @@ function createTableItem(count, inputData, item) {
 
 function createEdittableItem(count, inputData, item, lastRow) {
     var tableRow = document.createElement('tr');
-
     var cell = document.createElement('td');
+
     cell.appendChild(document.createTextNode(count));
     tableRow.appendChild(cell);
     item.forEach(function(c) {
@@ -284,16 +283,26 @@ function createEdittableItem(count, inputData, item, lastRow) {
 function createNewItemToList(inputData, button) {
     var newId = 1000;
     var newItemList = [];
+
+    console.log("before: " + JSON.stringify(inputData.itemList.items));
+
     inputData.itemList.items.forEach(function(l) {
 	var newitemRow = [];
 	l.forEach(function(i) {
-	    newitemRow.push(getItemDefinitionAndValue(i.id, newId++));
+	    var newItem = getItemDefinitionAndValue(i.id, newId);
+	    newId = newItem.newId;
+	    newitemRow.push(newItem.newObject);
 	});
 	newItemList.push(newitemRow);
     });
+
+    console.log("after: " + JSON.stringify(newItemList));
+
     var bottomItem = [];    
     inputData.itemList.newItem.forEach(function(i) {
-	bottomItem.push(getItemDefinitionAndValue(i.id, newId++));
+	var newItem = getItemDefinitionAndValue(i.id, newId);
+	newId = newItem.newId;
+	bottomItem.push(newItem.newObject);
     });
     newItemList.push(bottomItem);
     var newNewItem = [];
@@ -301,6 +310,7 @@ function createNewItemToList(inputData, button) {
 	i.id = newId++;
 	newNewItem.push(i);
     });
+
     var newData = { user: inputData.user, priviliges: inputData.priviliges,
 		    itemList: { title: inputData.itemList.title, header: inputData.itemList.header,
 				items: newItemList, newItem: newNewItem },
@@ -331,6 +341,7 @@ function createTypedObject(item, inputData) {
 	var newItem = document.createElement('div');
 	newItem.itemType = "textnode";
 	newItem.id = item.id;
+	newItem.itemText = item.text;
 	newItem.appendChild(document.createTextNode(item.text));
     }
 
@@ -350,6 +361,21 @@ function createTypedObject(item, inputData) {
 	newItem.id = item.id;
 	newItem.checked = item.checked;
 	newItem.title = item.title;
+    }
+
+    if(item.itemType === "checkboxlist") {
+	var newItem = document.createElement('div');
+	newItem.itemType = "checkboxlist";
+	newItem.id = item.id;
+	newItem.checkBoxList = item.checkBoxList;
+	item.checkBoxList.forEach(function(c){
+	    var checkBox = document.createElement('input');
+	    checkBox.type = "checkbox";
+	    checkBox.id = c.id;
+	    checkBox.checked = c.checked;
+	    checkBox.title = c.title;
+	    newItem.appendChild(checkBox);
+	});
     }
 
     if(item.itemType === "selection") {
@@ -414,37 +440,66 @@ function getSelectedItemInList(selectionList) {
     return  selectionList.options[selectionList.selectedIndex].item;
 }
 
+
 function getItemDefinitionAndValue(id, newId) {
+
     var item = document.getElementById(id);
 
-    if(item.itemType === "textarea") {
-	return { itemType: "textarea",
-		 id: newId,
-		 cols: item.cols,
-		 rows: item.rows,
-		 value: item.value };
+    if(item.itemType === "textnode") {
+	var newObject = { itemType: "textnode",
+			  id: newId++,
+			  text: item.itemText };
     }
 
+    if(item.itemType === "textarea") {
+	var newObject = { itemType: "textarea",
+			  id: newId++,
+			  cols: item.cols,
+			  rows: item.rows,
+			  value: item.value };
+    }
+
+
     if(item.itemType === "checkbox") {
-	return { itemType: "checkbox",
-		 id: newId,
-		 checked: item.checked,
-		 title: item.title };
+	var newObject = { itemType: "checkbox",
+			  id: newId++,
+			  checked: item.checked,
+			  title: item.title };
+    }
+
+    if(item.itemType === "checkboxlist") {
+	var newCheckBoxList = [];
+	item.checkBoxList.forEach(function(c) {
+
+	    console.log("cid: " + JSON.stringify(c.id))
+
+	    var aCheckBox = document.getElementById(c.id);
+	    newCheckBoxList.push( { type: "checkbox",
+				    id: newId++,
+				    checked: aCheckBox.checked,
+				    title: aCheckBox.title } );
+	});
+	var newObject =  { itemType: "checkboxlist",
+			   id: newId++,
+			   checkBoxList: newCheckBoxList };
+
     }
 
     if(item.itemType === "selection") {
-	return { itemType: "selection",
-		 id: newId,
-		 list: item.literalList.map(function(i) { return { text: i.text, item: i.item }; }),
-		 selected: getSelectedItemInList(item) };
+	var newObject =  { itemType: "selection",
+			   id: newId++,
+			   list: item.literalList.map(function(i) { return { text: i.text, item: i.item }; }),
+			   selected: getSelectedItemInList(item) };
     }
 
     if(item.itemType === "button") {
-	return { itemType: "button",
-		 id: newId,
-		 text: item.text,
-		 callbackMessage: item.callbackMessage };
+	var newObject = { itemType: "button",
+			  id: newId++,
+			  text: item.text,
+			  callbackMessage: item.callbackMessage };
     }
+
+    return { newId: newId, newObject: newObject };
 }
 
 
@@ -1279,6 +1334,7 @@ function deleteGameFromList(tournamentData, button) {
 // ---------- Sysadmin panel handling
 
 function createAdminView(adminData) {
+
     var fieldset = document.createElement('fieldsetset');
     var acceptButton = document.createElement('button');
     var cancelButton = document.createElement('button');
