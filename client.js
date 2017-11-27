@@ -243,9 +243,12 @@ function createTableItem(count, inputData, item) {
     var cell = document.createElement('td');
     cell.appendChild(document.createTextNode(count));
     tableRow.appendChild(cell);
+    var id = 1001;
     item.forEach(function(c) {
 	var cell = document.createElement('td');
-	cell.appendChild(createTypedObject(c, inputData));
+	var newTypedObject = createTypedObject(id, c, inputData);
+	id = newTypedObject.id;
+	cell.appendChild(newTypedObject.item);
 	tableRow.appendChild(cell);
     });
     return tableRow;
@@ -257,9 +260,11 @@ function createEdittableItem(count, inputData, item, lastRow) {
 
     cell.appendChild(document.createTextNode(count));
     tableRow.appendChild(cell);
+    var id = 1001;
     item.forEach(function(c) {
 	var cell = document.createElement('td');
-	cell.appendChild(createTypedObject(c, inputData));
+	var newTypedObject = createTypedObject(id, c, inputData);
+	id = newTypedObject.id;
 	tableRow.appendChild(cell);
     });
     var lastCell = document.createElement('td');
@@ -335,94 +340,88 @@ function deleteItemFromList(inputData, button) {
     return false;
 }
 
-function createTypedObject(item, inputData) {
+function createTypedObject(id, item, inputData) {
+    var newItemContainer = document.createElement('div');
 
-    if(item.itemType === "textnode") {
-	var newItem = document.createElement('div');
-	newItem.itemType = "textnode";
-	newItem.id = item.id;
-	newItem.itemText = item.text;
-	newItem.appendChild(document.createTextNode(item.text));
-    }
+    item.forEach(function(i) {
 
-    if(item.itemType === "textarea") {
-	var newItem = document.createElement("textarea");
-	newItem.itemType = "textarea";
-	newItem.id = item.id;
-	newItem.setAttribute('cols', item.cols);
-	newItem.setAttribute('rows', item.rows);
-	newItem.value = item.value;
-    }
+	if(i.itemType === "textnode") {
+	    var newItem = document.createElement('div');
+	    newItem.itemType = "textnode";
+	    newItem.id = id++;
+	    newItem.itemText = i.text;
+	    newItem.appendChild(document.createTextNode(i.text));
+	    newItemContainer.appendChild(newItem);
+	}
 
-    if(item.itemType === "checkbox") {
-	var newItem = document.createElement('input');
-	newItem.itemType = "checkbox";
-	newItem.type = "checkbox";
-	newItem.id = item.id;
-	newItem.checked = item.checked;
-	newItem.title = item.title;
-    }
+	if(i.itemType === "textarea") {
+	    var newItem = document.createElement("textarea");
+	    newItem.itemType = "textarea";
+	    newItem.id = id++;
+	    newItem.setAttribute('cols', i.cols);
+	    newItem.setAttribute('rows', i.rows);
+	    newItem.value = i.value;
+	    newItemContainer.appendChild(newItem);
+	}
 
-    if(item.itemType === "checkboxlist") {
-	var newItem = document.createElement('div');
-	newItem.itemType = "checkboxlist";
-	newItem.id = item.id;
-	newItem.checkBoxList = item.checkBoxList;
-	item.checkBoxList.forEach(function(c){
-	    var checkBox = document.createElement('input');
-	    checkBox.type = "checkbox";
-	    checkBox.id = c.id;
-	    checkBox.checked = c.checked;
-	    checkBox.title = c.title;
-	    newItem.appendChild(checkBox);
-	});
-    }
+	if(i.itemType === "checkbox") {
+	    var newItem = document.createElement('input');
+	    newItem.itemType = "checkbox";
+	    newItem.type = "checkbox";
+	    newItem.id = id++;
+	    newItem.checked = i.checked;
+	    newItem.title = i.title;
+	    newItemContainer.appendChild(newItem);
+	}
 
-    if(item.itemType === "selection") {
-	var newItem = document.createElement('select');
-	var myOption = document.createElement('option');
-	var literalList = [];
-	var zeroOption = { text: "", item: "", value: 0 };
-	myOption.text = "";
-	myOption.item = "";
-	myOption.value = 0;
-	literalList.push(zeroOption);
-	newItem.add(myOption);
-	var count = 1;
-	item.list.forEach(function(i) {
+	if(i.itemType === "selection") {
+	    var newItem = document.createElement('select');
 	    var myOption = document.createElement('option');
-	    var nOption = { text: i.text, item: i.item, value: count };
-	    myOption.text = i.text;
-	    myOption.item = i.item;
-	    myOption.value = count;
-	    literalList.push(nOption);
+	    var literalList = [];
+	    var zeroOption = { text: "", item: "", value: 0 };
+	    myOption.text = "";
+	    myOption.item = "";
+	    myOption.value = 0;
+	    literalList.push(zeroOption);
 	    newItem.add(myOption);
-	    count++;
-	});
-	newItem.itemType = "selection";
-	newItem.id = item.id;
-	newItem.literalList = literalList;
-	setSelectedItemInList(newItem, item.selected);
-    }
+	    var count = 1;
+	    i.list.forEach(function(j) {
+		var myOption = document.createElement('option');
+		var nOption = { text: j.text, item: j.item, value: count };
+		myOption.text = j.text;
+		myOption.item = j.item;
+		myOption.value = count;
+		literalList.push(nOption);
+		newItem.add(myOption);
+		count++;
+	    });
+	    newItem.itemType = "selection";
+	    newItem.id = id++;
+	    newItem.literalList = literalList;
+	    setSelectedItemInList(newItem, i.selected);
+	    newItemContainer.appendChild(newItem);
+	}
 
-    if(item.itemType === "button") {
-	var newItem = document.createElement('div');
-	newItem.itemType = "button";
-	newItem.id = item.id;
-	newItem.text = item.text;
-	newItem.callbackMessage = item.callbackMessage;
+	if(i.itemType === "button") {
+	    var newItem = document.createElement('div');
+	    newItem.itemType = "button";
+	    newItem.id = id++;
+	    newItem.text = i.text;
+	    newItem.callbackMessage = i.callbackMessage;
 
-	var button = document.createElement('button');
-	button.appendChild(document.createTextNode(item.text));
-	button.onclick = function() { sendToServerEncrypted(item.callbackMessage,
-							    { buttonId: item.id,
-							      inputData: inputData });
-				      return false;
-				    };
-	newItem.appendChild(button);
-    }
+	    var button = document.createElement('button');
+	    button.appendChild(document.createTextNode(i.text));
+	    button.onclick = function() { sendToServerEncrypted(i.callbackMessage,
+								{ buttonId: i.id,
+								  inputData: inputData });
+					  return false;
+					};
+	    newItem.appendChild(button);
+	    newItemContainer.appendChild(newItem);
+	}
+    });
 
-    return newItem;
+    return { id: id, item: newItemContainer };
 }
 
 function createSelectionList(myList, myId) {

@@ -338,37 +338,29 @@ function processGainAdminMode(cookie, content) {
 	var topButtonList =  createTopButtonList(cookie);
 
 	var items = [];
-	var count = 301;
 	datastorage.read("users").users.forEach(function(u) {
-	    items.push([ createUiTextNode(count++, u.username),
-			 createUiTextArea(count++, u.realname, 25),
-			 createUiTextArea(count++, u.email, 30),
-			 createUiTextArea(count++, u.phone, 15),
-			 createUiCheckBoxGroup( [ { id:count++, checked: userHasViewPrivilige(u),
-						    title: "view" },
-						  { id:count++, checked: userHasEditScoresPrivilige(u),
-						    title: "scores" },
-						  { id:count++, checked: userHasEditTeamsPrivilige(u),
-						    title: "teams" },
-						  { id:count++, checked: userHasEditTournamentsPrivilige(u),
-						    title: "tournements" },
-						  { id:count++, checked: userHasSysAdminPrivilige(u),
-						    title: "admin" } ] ) ] )
+	    items.push([ [ [ createUiTextNode(u.username) ] ],
+			 [ [ createUiTextArea(u.realname, 25) ] ],
+			 [ [ createUiTextArea(u.email, 30) ] ],
+			 [ [ createUiTextArea(u.phone, 15) ] ],
+			 [ [ createUiCheckBox(userHasViewPrivilige(u), "view"),
+			     createUiCheckBox(userHasEditScoresPrivilige(u), "view"),
+			     createUiCheckBox(userHasEditTeamsPrivilige(u), "teams"),
+			     createUiCheckBox(userHasEditTournamentsPrivilige(u), "tournements"),
+			     createUiCheckBox(userHasSysAdminPrivilige(u), "admin") ] ] ] )
 	});
 
 	var itemList = { title: "User Admin Data",
 			 header: [ { text: "username" }, { text: "realname" }, { text: "email" },
 				   { text: "phone" }, { text: "V / S / Te / To / A" } ],
 			 items: items,
-			 newItem: [ createUiTextArea(count++, "<username>"),
-				    createUiTextArea(count++, "<realname>", 25),
-				    createUiTextArea(count++, "<email>", 30),
-				    createUiTextArea(count++, "<phone>", 15),
-				    createUiCheckBoxGroup( [ { id:count++, checked: false, title: "view" },
-							     { id:count++, checked: false, title: "scores" },
-							     { id:count++, checked: false, title: "teams" },
-							     { id:count++, checked: false, title: "tournaments" },
-							     { id:count++, checked: false, title: "admin" } ] ) ] };
+			 newItem: [ [ createUiTextArea("<username>") ],
+				    [ createUiTextArea("<realname>", 25) ],
+				    [ createUiTextArea("<email>", 30) ],
+				    [ createUiTextArea("<phone>", 15) ],
+				    [ createUiCheckBox(false, "view"), createUiCheckBox(false, "scores"),
+				      createUiCheckBox(false, "teams"), createUiCheckBox(false, "tournaments"),
+				      createUiCheckBox(false, "admin") ] ] };
 
 	sendable = { type: "createGenericEditFrame",
 		     content: { user: cookie.user.username,
@@ -419,35 +411,31 @@ function processResetToMainState(cookie, content) {
 
 /**********/
 
-function createUiTextNode(id, text) {
-    return { itemType: "textnode", id: id, text: text };
+function createUiTextNode(text) {
+    return { itemType: "textnode", text: text };
 }
 
-function createUiTextArea(id, value, cols, rows) {
+function createUiTextArea(value, cols, rows) {
     if(cols === undefined) { cols = 10; }
     if(rows === undefined) { rows = 1; }
-    return { itemType: "textarea", id: id, value: value, cols: cols, rows: rows };
+    return { itemType: "textarea", value: value, cols: cols, rows: rows };
 }
 
-function createUiCheckBox(id, checked, title) {
+function createUiCheckBox(checked, title) {
     if(title === undefined) { title = ""; }
-    return { itemType: "checkbox", id: id, checked: checked, title: title };
+    return { itemType: "checkbox", checked: checked, title: title };
 }
 
-function createUiCheckBoxGroup(checkBoxList) {
-    return { itemType: "checkboxlist", checkBoxList: checkBoxList };
-}
-
-function createUiSelectionList(id, list, selected) {
+function createUiSelectionList(list, selected) {
     var listItems = list.map(function(i) {
 	return { text: i, item: i }
     }).filter(function(f) { return f; });
 
-    return { itemType: "selection", id: id, list: listItems, selected: selected };
+    return { itemType: "selection", list: listItems, selected: selected };
 }
 
-function createUiButton(id, text, callbackMessage) {
-    return { itemType: "button", id: id, text: text, callbackMessage: callbackMessage };
+function createUiButton(text, callbackMessage) {
+    return { itemType: "button", text: text, callbackMessage: callbackMessage };
 }
 
 
@@ -482,11 +470,10 @@ function sendTournamentMainData(cookie) {
     });
 
     var items = [];
-    var count = 201;
     tournaments.forEach(function(t) {
-	items.push([ createUiTextNode(count++, t.name),
-		     createUiButton(count++, "Tulokset", "getTournamentDataForShow"),
-		     createUiButton(count++, "Muokkaa", "getOneTournamentScoresForEdit") ]);
+	items.push( [ [ createUiTextNode(t.name) ],
+		      [ createUiButton("Tulokset", "getTournamentDataForShow") ],
+		      [ createUiButton("Muokkaa", "getOneTournamentScoresForEdit") ] ] );
     });
 
     var itemList = { title: "Tournament",
@@ -510,13 +497,12 @@ function sendOneTournamentForScoresEdit(cookie, tournament) {
     console.log(JSON.stringify(tournament));
 
     var items = [];
-    var count = 201;
     tournament.games.forEach(function(t) {
-	items.push([ createUiTextNode(count++, t.time),
-		     createUiTextNode(count++, t.home),
-		     createUiTextNode(count++, t.guest),
-		     createUiTextNode(count++, t.result),
-		     createUiButton(count++, "Muokkaa", "getOneMatchScoresForEdit") ]);
+	items.push( [ [ createUiTextNode(t.time) ],
+		      [ createUiTextNode(t.home) ],
+		      [ createUiTextNode(t.guest) ],
+		      [ createUiTextNode(t.result) ],
+		      [ createUiButton("Muokkaa", "getOneMatchScoresForEdit") ] ] );
     });
 
     var itemList = { title: tournament.name,
