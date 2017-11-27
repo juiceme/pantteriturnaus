@@ -223,7 +223,9 @@ function editMatchStatistics(tournamentData, button) {
 function createMatchStatisticsView(tournamentData, id) {
     var fieldset = document.createElement('fieldsetset');
     fieldset.appendChild(document.createElement('br'));
-    fieldset.appendChild(createMatchStatisticsTable(tournamentData, id));
+    fieldset.appendChild(createMatchPointStatisticsTable(tournamentData, id));
+    fieldset.appendChild(document.createElement('br'));
+    fieldset.appendChild(createMatchPenaltyStatisticsTable(tournamentData, id));
     fieldset.appendChild(document.createElement('br'));
     fieldset.appendChild(createMatchStatisticsButtons(tournamentData, id));
     fieldset.appendChild(document.createElement('br'));
@@ -231,7 +233,7 @@ function createMatchStatisticsView(tournamentData, id) {
     return fieldset;
 }
 
-function createMatchStatisticsTable(tournamentData, id) {
+function createMatchPointStatisticsTable(tournamentData, id) {
     var match = tournamentData.tournament.games.map(function(a) {
 	    if(a.round == id) { return a; }
 	}).filter(function(s){ return s; })[0];
@@ -250,17 +252,54 @@ function createMatchStatisticsTable(tournamentData, id) {
     var hCell4 = hRow0.insertCell();
     hCell4.innerHTML = "<b>Laukoja</b>";
     var hCell5 = hRow0.insertCell();
-    hCell5.innerHTML = "<b>Syöttäjä</b>";
+    hCell5.innerHTML = "<b>" + uiText("Syöttäjä") + "</b>";
 
-    var newRow = { point: "", type: "maali", time: "00:00", scorer: "", passer: ""};
+    var newRow = { point: "", type: "maali", time: "00:00", scorer: "", passer: "" };
     if(match === []) {
-	tableBody.appendChild(createMatchEditTableRow(tournamentData, id, 1, match, newRow, true));
+	tableBody.appendChild(createMatchPointEditTableRow(tournamentData, id, 1, match, newRow, true));
     } else {
 	count=1;
 	match.scores.forEach(function(u) {
-	    tableBody.appendChild(createMatchEditTableRow(tournamentData, id, count++, match, u, false));
+	    tableBody.appendChild(createMatchPointEditTableRow(tournamentData, id, count++, match, u, false));
 	});
-	tableBody.appendChild(createMatchEditTableRow(tournamentData, id, count, match, newRow, true));
+	tableBody.appendChild(createMatchPointEditTableRow(tournamentData, id, count, match, newRow, true));
+    }
+
+    table.appendChild(tableHeader);
+    table.appendChild(tableBody);
+    return table;
+}
+
+function createMatchPenaltyStatisticsTable(tournamentData, id) {
+    var match = tournamentData.tournament.games.map(function(a) {
+	    if(a.round == id) { return a; }
+	}).filter(function(s){ return s; })[0];
+    var table = document.createElement('table');
+    var tableHeader = document.createElement('thead');
+    var tableBody = document.createElement('tbody');
+    var hRow0 = tableHeader.insertRow(0);    
+    var hCell0 = hRow0.insertCell();
+    hCell0.innerHTML = "<b>" + match.home + " vs. " + match.guest + "</b>";
+    var hCell1 = hRow0.insertCell();
+    hCell1.innerHTML = "<b>Penalty</b>";
+    var hCell2 = hRow0.insertCell();
+    hCell2.innerHTML = "<b>Tyyppi</b>";
+    var hCell3 = hRow0.insertCell();
+    hCell3.innerHTML = "<b>Kestoaika</b>";
+    var hCell4 = hRow0.insertCell();
+    hCell4.innerHTML = "<b>Aika</b>";
+    var hCell5 = hRow0.insertCell();
+    hCell5.innerHTML = "<b>Pelaaja</b>";
+
+    var newRow = { penalty: "", type: "", duration: "", time: "00:00", player: ""};
+    if(match === []) {
+	tableBody.appendChild(createMatchPenaltyEditTableRow(tournamentData, id, 1, match, newRow, true));
+    } else {
+	count=1;
+	match.scores.forEach(function(u) {
+	    tableBody.appendChild(createMatchPenaltyEditTableRow(tournamentData, id, count++, match, u, false));
+	});
+	tableBody.appendChild(createMatchPenaltyEditTableRow(tournamentData, id, count, match, newRow, true));
     }
 
     table.appendChild(tableHeader);
@@ -318,12 +357,14 @@ function cancelMatchStatisticsEdit() {
     return false;
 }
 
-function createMatchEditTableRow(tournamentData, id , count, match, item, lastRow) {
+function createMatchPointEditTableRow(tournamentData, id , count, match, item, lastRow) {
     var pointSelector = createSelectionList([{text: match.home, item: match.home},
 					     {text: match.guest, item: match.guest}],
 					    "sel_" + count + "_point");
     var pointTypeSelector = createSelectionList([{text: "maali", item: "maali"},
 						 {text: "rankkari", item: "rankkari"},
+						 {text: "ylivoima", item: "ylivoima"},
+						 {text: "alivoima", item: "alivoima"},
 						 {text: "omari", item: "omari"}],
 						"sel_" + count + "_pointType");
     var allPlayers = [];
@@ -373,6 +414,86 @@ function createMatchEditTableRow(tournamentData, id , count, match, item, lastRo
     var cell5 = document.createElement('td');
     cell5.appendChild(passSelector);
     setSelectedItemInList(passSelector, item.passer);
+    row.appendChild(cell5);
+
+    var cell6 = document.createElement('td');
+    if(lastRow) {
+	var addButton = document.createElement("button");
+	addButton.appendChild(document.createTextNode("Luo uusi"));
+	addButton.id = count;
+	addButton.onclick = function() { createMatchItemToList(tournamentData, id, match, this); }
+	cell6.appendChild(addButton);
+    } else {
+	var deleteButton = document.createElement("button");
+	deleteButton.appendChild(document.createTextNode("Poista"));
+	deleteButton.id = count;
+	deleteButton.onclick = function() { deleteMatchItemFromList(tournamentData, id, match, this); }
+	cell6.appendChild(deleteButton);
+    }
+    row.appendChild(cell6);
+    return row;
+}
+
+function createMatchPenaltyEditTableRow(tournamentData, id , count, match, item, lastRow) {
+    var pointSelector = createSelectionList([{text: match.home, item: match.home},
+					     {text: match.guest, item: match.guest}],
+					    "sel_" + count + "_penalty");
+    var penaltyTypeSelector = createSelectionList([{text: "", item: "maali"},
+						 {text: "rankkari", item: "rankkari"},
+						 {text: "ylivoima", item: "ylivoima"},
+						 {text: "alivoima", item: "alivoima"},
+						 {text: "omari", item: "omari"}],
+						"sel_" + count + "_penaltyType");
+    var penaltyTimeSelector = createSelectionList([{text: "2 min", item: "2 min"},
+						   {text: "5 min", item: "5 min"}],
+						   "sel_" + count + "_penaltyTime");
+
+    var allPlayers = [];
+    getTeamPlayers(tournamentData, match.home).map(function(a) {
+	return { text: "[" + match.home + "] - " + a.name + ", #" + a.number, item: a };
+    }).forEach(function(b) {
+	allPlayers.push(b);
+    });
+    getTeamPlayers(tournamentData, match.guest).map(function(a) {
+	return { text: "[" + match.guest + "] - " + a.name + ", #" + a.number, item: a };
+    }).forEach(function(b) {
+	allPlayers.push(b);
+    });
+
+    var penaltySelector = createSelectionList(allPlayers, "sel_" + count + "_guilty");
+
+    var row = document.createElement('tr');
+    var cell0 = document.createElement('td');
+    cell0.appendChild(document.createTextNode(count));
+    row.appendChild(cell0);
+
+    var cell1 = document.createElement('td');
+    cell1.appendChild(pointSelector);
+    setSelectedItemInList(pointSelector, item.point);
+    row.appendChild(cell1);
+
+    var cell2 = document.createElement('td');
+    cell2.appendChild(penaltyTypeSelector);
+    setSelectedItemInList(penaltyTypeSelector, item.type)
+    row.appendChild(cell2);
+
+    var cell3 = document.createElement('td');
+    cell3.appendChild(penaltyTimeSelector);
+    setSelectedItemInList(penaltyTimeSelector, item.type)
+    row.appendChild(cell3);
+
+    var cell4 = document.createElement('td');
+    var txtA4 = document.createElement("textarea");
+    txtA4.id = "sel_" + count + "_penaltytime";
+    txtA4.setAttribute('cols', 10);
+    txtA4.setAttribute('rows', 1);
+    txtA4.value = item.time;
+    cell4.appendChild(txtA4);
+    row.appendChild(cell4);
+
+    var cell5 = document.createElement('td');
+    cell5.appendChild(penaltySelector);
+    setSelectedItemInList(penaltySelector, item.scorer);
     row.appendChild(cell5);
 
     var cell6 = document.createElement('td');

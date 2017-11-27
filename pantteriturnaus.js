@@ -742,7 +742,8 @@ datastorage.initialize("tournaments", { tournaments: [ { name: "Panthers Cup 201
 								    guest: "team2",
 								    time: "10:00 - 10:45",
 								    result: "-",
-								    scores: [] } ] } ] }, true);
+								    scores: [],
+								    penalties: [] } ] } ] }, true);
 datastorage.initialize("teams", { teams: [ { name: "team1",
 					     players: [ { name: "player1",
 							  number: "1"} ] },
