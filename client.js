@@ -157,8 +157,11 @@ function createFixedItemList(inputData) {
 	hRow1.appendChild(cell);
     });
     var count = 1;
+    var id = 1001;
     inputData.itemList.items.forEach(function(i) {
-	tableBody.appendChild(createTableItem(count, inputData, i));
+	var newTableItem = createTableItem(id, count, inputData, i);
+	id = newTableItem.id;
+	tableBody.appendChild(newTableItem.tableRow);
 	count++;
     });
     table.appendChild(tableHeader);
@@ -183,12 +186,15 @@ function createEditableItemList(inputData) {
 	hRow1.appendChild(cell);
     });
     var count = 1;
+    var id = 2001;
     inputData.itemList.items.forEach(function(i) {
-	tableBody.appendChild(createEdittableItem(count, inputData, i, false));
+	var newTableItem = createEditTableItem(id, count, inputData, i, false);
+	id = newTableItem.id;
+	tableBody.appendChild(newTableItem.tableRow);
 	count++;
     });
     var newItem = inputData.itemList.newItem;
-    tableBody.appendChild(createEdittableItem(count, inputData, newItem, true));
+    tableBody.appendChild(createEditTableItem(id, count, inputData, newItem, true).tableRow);
     table.appendChild(tableHeader);
     table.appendChild(tableBody);
     return table;
@@ -238,12 +244,11 @@ function createAcceptButtons(inputData) {
     return table;
 }
 
-function createTableItem(count, inputData, item) {
+function createTableItem(id, count, inputData, item) {
     var tableRow = document.createElement('tr');
     var cell = document.createElement('td');
     cell.appendChild(document.createTextNode(count));
     tableRow.appendChild(cell);
-    var id = 1001;
     item.forEach(function(c) {
 	var cell = document.createElement('td');
 	var newTypedObject = createTypedObject(id, c, inputData);
@@ -251,20 +256,20 @@ function createTableItem(count, inputData, item) {
 	cell.appendChild(newTypedObject.item);
 	tableRow.appendChild(cell);
     });
-    return tableRow;
+    return { id: id, tableRow: tableRow };
 }
 
-function createEdittableItem(count, inputData, item, lastRow) {
+function createEditTableItem(id, count, inputData, item, lastRow) {
     var tableRow = document.createElement('tr');
     var cell = document.createElement('td');
 
     cell.appendChild(document.createTextNode(count));
     tableRow.appendChild(cell);
-    var id = 1001;
     item.forEach(function(c) {
 	var cell = document.createElement('td');
 	var newTypedObject = createTypedObject(id, c, inputData);
 	id = newTypedObject.id;
+	cell.appendChild(newTypedObject.item);
 	tableRow.appendChild(cell);
     });
     var lastCell = document.createElement('td');
@@ -282,14 +287,12 @@ function createEdittableItem(count, inputData, item, lastRow) {
 	lastCell.appendChild(deleteButton);
     }
     tableRow.appendChild(lastCell);
-    return tableRow;
+    return { id: id, tableRow: tableRow };
 }
 
 function createNewItemToList(inputData, button) {
     var newId = 1000;
     var newItemList = [];
-
-    console.log("before: " + JSON.stringify(inputData.itemList.items));
 
     inputData.itemList.items.forEach(function(l) {
 	var newitemRow = [];
@@ -300,9 +303,6 @@ function createNewItemToList(inputData, button) {
 	});
 	newItemList.push(newitemRow);
     });
-
-    console.log("after: " + JSON.stringify(newItemList));
-
     var bottomItem = [];    
     inputData.itemList.newItem.forEach(function(i) {
 	var newItem = getItemDefinitionAndValue(i.id, newId);
@@ -469,9 +469,6 @@ function getItemDefinitionAndValue(id, newId) {
     if(item.itemType === "checkboxlist") {
 	var newCheckBoxList = [];
 	item.checkBoxList.forEach(function(c) {
-
-	    console.log("cid: " + JSON.stringify(c.id))
-
 	    var aCheckBox = document.getElementById(c.id);
 	    newCheckBoxList.push( { type: "checkbox",
 				    id: newId++,

@@ -339,15 +339,15 @@ function processGainAdminMode(cookie, content) {
 
 	var items = [];
 	datastorage.read("users").users.forEach(function(u) {
-	    items.push([ [ [ createUiTextNode(u.username) ] ],
-			 [ [ createUiTextArea(u.realname, 25) ] ],
-			 [ [ createUiTextArea(u.email, 30) ] ],
-			 [ [ createUiTextArea(u.phone, 15) ] ],
-			 [ [ createUiCheckBox(userHasViewPrivilige(u), "view"),
+	    items.push([ [ createUiTextNode(u.username) ],
+			 [ createUiTextArea(u.realname, 25) ],
+			 [ createUiTextArea(u.email, 30) ],
+			 [ createUiTextArea(u.phone, 15) ],
+			 [ createUiCheckBox(userHasViewPrivilige(u), "view"),
 			     createUiCheckBox(userHasEditScoresPrivilige(u), "view"),
 			     createUiCheckBox(userHasEditTeamsPrivilige(u), "teams"),
 			     createUiCheckBox(userHasEditTournamentsPrivilige(u), "tournements"),
-			     createUiCheckBox(userHasSysAdminPrivilige(u), "admin") ] ] ] )
+			     createUiCheckBox(userHasSysAdminPrivilige(u), "admin") ] ] )
 	});
 
 	var itemList = { title: "User Admin Data",
