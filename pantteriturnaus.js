@@ -344,10 +344,10 @@ function processGainAdminMode(cookie, content) {
 			 [ createUiTextArea(u.email, 30) ],
 			 [ createUiTextArea(u.phone, 15) ],
 			 [ createUiCheckBox(userHasViewPrivilige(u), "view"),
-			     createUiCheckBox(userHasEditScoresPrivilige(u), "view"),
-			     createUiCheckBox(userHasEditTeamsPrivilige(u), "teams"),
-			     createUiCheckBox(userHasEditTournamentsPrivilige(u), "tournements"),
-			     createUiCheckBox(userHasSysAdminPrivilige(u), "admin") ] ] )
+			   createUiCheckBox(userHasEditScoresPrivilige(u), "view"),
+			   createUiCheckBox(userHasEditTeamsPrivilige(u), "teams"),
+			   createUiCheckBox(userHasEditTournamentsPrivilige(u), "tournements"),
+			   createUiCheckBox(userHasSysAdminPrivilige(u), "admin") ] ] )
 	});
 
 	var itemList = { title: "User Admin Data",
@@ -367,7 +367,8 @@ function processGainAdminMode(cookie, content) {
 				priviliges: cookie.user.applicationData.priviliges,
 				topButtonList: topButtonList,
 				itemList: itemList,
-				buttonList: [ { id: 501, text: "OK", callbackMessage: "hilipatipippan" } ] } };
+				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveAdminData" },
+					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
 
 	sendCipherTextToClient(cookie, sendable);
 	servicelog("Sent NEW adminData to client #" + cookie.count);
@@ -383,7 +384,18 @@ function processSaveAdminData(cookie, content) {
     var adminData = JSON.parse(Aes.Ctr.decrypt(content, cookie.user.password, 128));
     servicelog("Client #" + cookie.count + " requests admin data saving: " + JSON.stringify(adminData));
     if(userHasSysAdminPrivilige(cookie.user)) {
-	updateAdminDataFromClient(cookie, adminData);
+
+	if(adminData.itemList === undefined) {
+	    servicelog("adminData does not contain itemList");
+	    sendTournamentMainData(cookie);
+	    return;
+	}
+	if(adminData.itemList.items === undefined) {
+	    servicelog("itemList does not contain items");
+	    sendTournamentMainData(cookie);
+	    return;
+	}
+	updateAdminDataFromClient(cookie, adminData.itemList.items);
 	cookie.user = getUserByUserName(cookie.user.username)[0];
     } else {
 	servicelog("user has insufficent priviliges to edit admin data");
@@ -793,7 +805,21 @@ function readUserData() {
     return userData;
  }
 
-function updateAdminDataFromClient(cookie, adminData) {
+function updateAdminDataFromClient(cookie, userData) {
+
+    servicelog("userList: " + JSON.stringify(userData));
+
+    servicelog("users: " + JSON.stringify(datastorage.read("users").users));
+
+    var userList = getUserListFromInputData(userData);
+    var newUsers = [];
+    var oldUsers = datastorage.read("users").users;
+    oldUsers.forEach(function(u) {
+	
+    });
+
+    return;
+
     if(datastorage.write("users", { users: adminData.users }) === false) {
 	servicelog("User database write failed");
     } else {
@@ -812,6 +838,23 @@ function updateTeamDataFromClient(cookie, teamData) {
 function getNewChallenge() {
     return ("challenge_" + sha1.hash(globalSalt + new Date().getTime().toString()) + "1");
 }
+
+
+// input data formatters
+
+function getUserListFromInputData(userData) {
+    var userList = [];
+    userData.forEach(function(u) {
+	userList.push( { username: u.[0][0].text,
+			 realname: u.[1][0].value,
+			 email: uli[1][2][0].value
+		       }
+	
+    });
+}
+
+
+// privilige management
 
 function getUserPriviliges(user) {
     if(user.applicationData.priviliges.length === 0) { return []; }
