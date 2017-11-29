@@ -197,6 +197,7 @@ function createEditableItemList(inputData) {
     tableBody.appendChild(createEditTableItem(id, count, inputData, newItem, true).tableRow);
     table.appendChild(tableHeader);
     table.appendChild(tableBody);
+
     return table;
 }
 
@@ -291,38 +292,25 @@ function createEditTableItem(id, count, inputData, item, lastRow) {
 }
 
 function createNewItemToList(inputData, button) {
-    var newId = 1000;
     var newItemList = [];
 
     inputData.itemList.items.forEach(function(l) {
 	var newitemRow = [];
 	l.forEach(function(i) {
-	    var newItem = getItemDefinitionAndValue(i.id, newId);
-	    newId = newItem.newId;
-	    newitemRow.push(newItem.newObject);
+	    newitemRow.push(getTypedObjectTemplateById(i));
 	});
 	newItemList.push(newitemRow);
     });
     var bottomItem = [];    
     inputData.itemList.newItem.forEach(function(i) {
-	var newItem = getItemDefinitionAndValue(i.id, newId);
-	newId = newItem.newId;
-	bottomItem.push(newItem.newObject);
+	bottomItem.push(getTypedObjectTemplateById(i));
     });
     newItemList.push(bottomItem);
-    var newNewItem = [];
-    inputData.itemList.newItem.forEach(function(i) {
-	i.id = newId++;
-	newNewItem.push(i);
-    });
 
     var newData = { user: inputData.user, priviliges: inputData.priviliges,
 		    itemList: { title: inputData.itemList.title, header: inputData.itemList.header,
-				items: newItemList, newItem: newNewItem },
+				items: newItemList, newItem: inputData.itemList.newItem },
 		    buttonList: inputData.buttonList };
-
-//    inputData.itemList.items = newItemList;
-//    inputData.itemList.newItem = newNewItem;
 
     document.body.replaceChild(createEditListFrame(newData),
 			       document.getElementById("myDiv2"));
@@ -344,11 +332,11 @@ function createTypedObject(id, item, inputData) {
     var newItemContainer = document.createElement('div');
 
     item.forEach(function(i) {
-
 	if(i.itemType === "textnode") {
 	    var newItem = document.createElement('div');
 	    newItem.itemType = "textnode";
 	    newItem.id = id++;
+	    i.itemId = newItem.id;
 	    newItem.itemText = i.text;
 	    newItem.appendChild(document.createTextNode(i.text));
 	    newItemContainer.appendChild(newItem);
@@ -358,6 +346,7 @@ function createTypedObject(id, item, inputData) {
 	    var newItem = document.createElement("textarea");
 	    newItem.itemType = "textarea";
 	    newItem.id = id++;
+	    i.itemId = newItem.id;
 	    newItem.setAttribute('cols', i.cols);
 	    newItem.setAttribute('rows', i.rows);
 	    newItem.value = i.value;
@@ -369,6 +358,7 @@ function createTypedObject(id, item, inputData) {
 	    newItem.itemType = "checkbox";
 	    newItem.type = "checkbox";
 	    newItem.id = id++;
+	    i.itemId = newItem.id;
 	    newItem.checked = i.checked;
 	    newItem.title = i.title;
 	    newItemContainer.appendChild(newItem);
@@ -397,6 +387,7 @@ function createTypedObject(id, item, inputData) {
 	    });
 	    newItem.itemType = "selection";
 	    newItem.id = id++;
+	    i.itemId = newItem.id;
 	    newItem.literalList = literalList;
 	    setSelectedItemInList(newItem, i.selected);
 	    newItemContainer.appendChild(newItem);
@@ -406,9 +397,9 @@ function createTypedObject(id, item, inputData) {
 	    var newItem = document.createElement('div');
 	    newItem.itemType = "button";
 	    newItem.id = id++;
+	    i.itemId = newItem.id;
 	    newItem.text = i.text;
 	    newItem.callbackMessage = i.callbackMessage;
-
 	    var button = document.createElement('button');
 	    button.appendChild(document.createTextNode(i.text));
 	    button.onclick = function() { sendToServerEncrypted(i.callbackMessage,
@@ -439,64 +430,32 @@ function getSelectedItemInList(selectionList) {
     return  selectionList.options[selectionList.selectedIndex].item;
 }
 
+function getTypedObjectTemplateById(item) {
+    var itemList = [];
 
-function getItemDefinitionAndValue(id, newId) {
+    item.forEach(function(i) {
+	var uiItem = document.getElementById(i.itemId);
 
-    var item = document.getElementById(id);
+	if(i.itemType === "textnode") {
+	    itemList.push( { itemType: "textnode", text: uiItem.itemText } );
+	}
+	if(i.itemType === "textarea") {
+	    itemList.push( { itemType: "textarea", value: uiItem.value, cols: i.cols, rows: i.rows } );
+	}
+	if(i.itemType === "checkbox") {
+	    itemList.push( { itemType: "checkbox", checked: uiItem.checked, title: i.title } );
+	}
+	if(i.itemType === "selection") {
+	    itemList.push( { itemType: "selection", list: i.literalList, selected: getSelectedItemInList(uiItem) } );
+	}
+	if(i.itemType === "button") {
+	    itemList.push( { itemType: "button", text: i.text, callbackMessage: i.callbackMessage } );
+	}
+    });
 
-    if(item.itemType === "textnode") {
-	var newObject = { itemType: "textnode",
-			  id: newId++,
-			  text: item.itemText };
-    }
-
-    if(item.itemType === "textarea") {
-	var newObject = { itemType: "textarea",
-			  id: newId++,
-			  cols: item.cols,
-			  rows: item.rows,
-			  value: item.value };
-    }
-
-
-    if(item.itemType === "checkbox") {
-	var newObject = { itemType: "checkbox",
-			  id: newId++,
-			  checked: item.checked,
-			  title: item.title };
-    }
-
-    if(item.itemType === "checkboxlist") {
-	var newCheckBoxList = [];
-	item.checkBoxList.forEach(function(c) {
-	    var aCheckBox = document.getElementById(c.id);
-	    newCheckBoxList.push( { type: "checkbox",
-				    id: newId++,
-				    checked: aCheckBox.checked,
-				    title: aCheckBox.title } );
-	});
-	var newObject =  { itemType: "checkboxlist",
-			   id: newId++,
-			   checkBoxList: newCheckBoxList };
-
-    }
-
-    if(item.itemType === "selection") {
-	var newObject =  { itemType: "selection",
-			   id: newId++,
-			   list: item.literalList.map(function(i) { return { text: i.text, item: i.item }; }),
-			   selected: getSelectedItemInList(item) };
-    }
-
-    if(item.itemType === "button") {
-	var newObject = { itemType: "button",
-			  id: newId++,
-			  text: item.text,
-			  callbackMessage: item.callbackMessage };
-    }
-
-    return { newId: newId, newObject: newObject };
+    return itemList;
 }
+
 
 
 // ---------- Main tournament list view
