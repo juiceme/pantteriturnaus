@@ -235,7 +235,13 @@ function createAcceptButtons(inputData) {
 	button.appendChild(document.createTextNode(b.text));
 	button.id = b.id;
 	button.onclick = function() {
-	    sendToServerEncrypted(b.callbackMessage, inputData);
+	    var freshData = { user: inputData.user, priviliges: inputData.priviliges,
+			      itemList: { title: inputData.itemList.title,
+					  header: inputData.itemList.header,
+					  items: refreshInputDataItems(inputData),
+					  newItem: inputData.itemList.newItem },
+			      buttonList: inputData.buttonList };
+	    sendToServerEncrypted(b.callbackMessage, freshData);
 	    return false;
 	};
 //	cell.appendChild(button);
@@ -292,25 +298,17 @@ function createEditTableItem(id, count, inputData, item, lastRow) {
 }
 
 function createNewItemToList(inputData, button) {
-    var newItemList = [];
-
-    inputData.itemList.items.forEach(function(l) {
-	var newitemRow = [];
-	l.forEach(function(i) {
-	    newitemRow.push(getTypedObjectTemplateById(i));
-	});
-	newItemList.push(newitemRow);
-    });
+    var newItemList = refreshInputDataItems(inputData);
     var bottomItem = [];    
     inputData.itemList.newItem.forEach(function(i) {
 	bottomItem.push(getTypedObjectTemplateById(i));
     });
     newItemList.push(bottomItem);
-
+    
     var newData = { user: inputData.user, priviliges: inputData.priviliges,
-		    itemList: { title: inputData.itemList.title, header: inputData.itemList.header,
-				items: newItemList, newItem: inputData.itemList.newItem },
-		    buttonList: inputData.buttonList };
+	       itemList: { title: inputData.itemList.title, header: inputData.itemList.header,
+			   items: newItemList, newItem: inputData.itemList.newItem },
+	       buttonList: inputData.buttonList };
 
     document.body.replaceChild(createEditListFrame(newData),
 			       document.getElementById("myDiv2"));
@@ -328,6 +326,19 @@ function deleteItemFromList(inputData, button) {
     return false;
 }
 
+function refreshInputDataItems(inputData) {
+    var newItemList = [];
+
+    inputData.itemList.items.forEach(function(l) {
+	var newitemRow = [];
+	l.forEach(function(i) {
+	    newitemRow.push(getTypedObjectTemplateById(i));
+	});
+	newItemList.push(newitemRow);
+    });
+    return newItemList;
+}
+
 function createTypedObject(id, item, inputData) {
     var newItemContainer = document.createElement('div');
 
@@ -335,6 +346,7 @@ function createTypedObject(id, item, inputData) {
 	if(i.itemType === "textnode") {
 	    var newItem = document.createElement('div');
 	    newItem.itemType = "textnode";
+	    newItem.key = i.key;
 	    newItem.id = id++;
 	    i.itemId = newItem.id;
 	    newItem.itemText = i.text;
@@ -345,6 +357,7 @@ function createTypedObject(id, item, inputData) {
 	if(i.itemType === "textarea") {
 	    var newItem = document.createElement("textarea");
 	    newItem.itemType = "textarea";
+	    newItem.key = i.key;
 	    newItem.id = id++;
 	    i.itemId = newItem.id;
 	    newItem.setAttribute('cols', i.cols);
@@ -356,6 +369,7 @@ function createTypedObject(id, item, inputData) {
 	if(i.itemType === "checkbox") {
 	    var newItem = document.createElement('input');
 	    newItem.itemType = "checkbox";
+	    newItem.key = i.key;
 	    newItem.type = "checkbox";
 	    newItem.id = id++;
 	    i.itemId = newItem.id;
@@ -386,6 +400,7 @@ function createTypedObject(id, item, inputData) {
 		count++;
 	    });
 	    newItem.itemType = "selection";
+	    newItem.key = i.key;
 	    newItem.id = id++;
 	    i.itemId = newItem.id;
 	    newItem.literalList = literalList;
@@ -437,19 +452,33 @@ function getTypedObjectTemplateById(item) {
 	var uiItem = document.getElementById(i.itemId);
 
 	if(i.itemType === "textnode") {
-	    itemList.push( { itemType: "textnode", text: uiItem.itemText } );
+	    itemList.push( { itemType: "textnode",
+			     key: i.key,
+			     text: uiItem.itemText } );
 	}
 	if(i.itemType === "textarea") {
-	    itemList.push( { itemType: "textarea", value: uiItem.value, cols: i.cols, rows: i.rows } );
+	    itemList.push( { itemType: "textarea",
+			     key: i.key,
+			     value: uiItem.value,
+			     cols: i.cols,
+			     rows: i.rows } );
 	}
 	if(i.itemType === "checkbox") {
-	    itemList.push( { itemType: "checkbox", checked: uiItem.checked, title: i.title } );
+	    itemList.push( { itemType: "checkbox",
+			     key: i.key,
+			     checked: uiItem.checked,
+			     title: i.title } );
 	}
 	if(i.itemType === "selection") {
-	    itemList.push( { itemType: "selection", list: i.literalList, selected: getSelectedItemInList(uiItem) } );
+	    itemList.push( { itemType: "selection",
+			     key: i.key,
+			     list: i.literalList,
+			     selected: getSelectedItemInList(uiItem) } );
 	}
 	if(i.itemType === "button") {
-	    itemList.push( { itemType: "button", text: i.text, callbackMessage: i.callbackMessage } );
+	    itemList.push( { itemType: "button",
+			     text: i.text,
+			     callbackMessage: i.callbackMessage } );
 	}
     });
 
