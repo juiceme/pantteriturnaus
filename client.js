@@ -15,100 +15,112 @@ mySocket.onopen = function (event) {
 mySocket.onmessage = function (event) {
     var receivable = JSON.parse(event.data);
 
-//    console.log("Received message: " + JSON.stringify(receivable));
-
-    if(receivable.type == "statusData") {
-        document.getElementById("myStatusField").value = receivable.content;
-    }
+    console.log("Received message: " + JSON.stringify(receivable));
 
     if(receivable.type == "loginView") {
+	var div1 = document.createElement("div");
+	document.body.replaceChild(div1, document.getElementById("myDiv1"));
+	div1.id = "myDiv1";
 	document.body.replaceChild(createLoginView(), document.getElementById("myDiv2"));
 	clearTimeout(connectionTimerId);
     }
 
-    if(receivable.type == "loginChallenge") {
-	var challenge = Aes.Ctr.decrypt(receivable.content, sessionPassword, 128);
-	var cipheredResponce = Aes.Ctr.encrypt(challenge, sessionPassword, 128);
+    if(receivable.type == "payload") {
+	// payload is always encrypted, if authentication is not successiful then JSON parsing
+	// fails and client is restarted
+	try {
+	    var content = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
+	    handleIncomingMessage(content);
+	} catch(err) {
+	    var sendable = {type:"clientStarted", content:"none"};
+	    mySocket.send(JSON.stringify(sendable));
+	}
+    }
+}
+
+function handleIncomingMessage(decryptedMessage) {
+
+    console.log("Decrypted incoming message: " + JSON.stringify(decryptedMessage));
+
+    if(decryptedMessage.type == "statusData") {
+        document.getElementById("myStatusField").value = decryptedMessage.content;
+    }
+
+    if(decryptedMessage.type == "loginChallenge") {
+	var cipheredResponce = Aes.Ctr.encrypt(decryptedMessage.content, sessionPassword, 128);
 	sendToServer("loginResponse", cipheredResponce);
     }
 
-    if(receivable.type == "unpriviligedLogin") {
-	var loginData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
-	document.body.replaceChild(createTopButtons(loginData), document.getElementById("myDiv1"));
+    if(decryptedMessage.type == "unpriviligedLogin") {
+	document.body.replaceChild(createTopButtons(decryptedMessage.content), document.getElementById("myDiv1"));
 	document.body.replaceChild(document.createElement("div"), document.getElementById("myDiv2"));
     }
 
-    if(receivable.type == "tournamentMainData") {
-	var tournamentMainData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
-	document.body.replaceChild(createTopButtons({type: "user"}, tournamentMainData),
+    if(decryptedMessage.type == "tournamentMainData") {
+	document.body.replaceChild(createTopButtons({type: "user"}, decryptedMessage.content),
 				   document.getElementById("myDiv1"));
-	document.body.replaceChild(createTournamentListView(tournamentMainData),
+	document.body.replaceChild(createTournamentListView(decryptedMessage.content),
 				   document.getElementById("myDiv2"));
    }
 
-    if(receivable.type == "showTournament") {
-	var previewData = atob(JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128)));
+    if(decryptedMessage.type == "showTournament") {
+
+	console.log("webview: " + JSON.stringify(decryptedMessage.content));
+
 	var wnd = window.document.open("about:blank", "", "scrollbars=yes");
-	wnd.document.write(decodeURIComponent(escape(previewData)));
+	wnd.document.write(decryptedMessage.content);
 	wnd.document.close();
     }
 
-    if(receivable.type == "editAllTournaments") {
-	var tournamentMainData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
-	document.body.replaceChild(createTopButtons({type: "user"}, tournamentMainData),
+    if(decryptedMessage.type == "editAllTournaments") {
+	document.body.replaceChild(createTopButtons({type: "user"}, decryptedMessage.content),
 				   document.getElementById("myDiv1"));
-	document.body.replaceChild(createEditTournamentsView(tournamentMainData.tournaments),
+	document.body.replaceChild(createEditTournamentsView(decryptedMessage.content.tournaments),
 				   document.getElementById("myDiv2"));
     }
 
-    if(receivable.type == "editOneTournamentScores") {
-	var tournamentData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
-	document.body.replaceChild(createTopButtons({type: "user"}, tournamentData),
+    if(decryptedMessage.type == "editOneTournamentScores") {
+	document.body.replaceChild(createTopButtons({type: "user"}, decryptedMessage.content),
 				   document.getElementById("myDiv1"));
-	document.body.replaceChild(createTournamentScoresView(tournamentData),
+	document.body.replaceChild(createTournamentScoresView(decryptedMessage.content),
 				   document.getElementById("myDiv2"));
    }
 
-    if(receivable.type == "editOneTournamentData") {
-	var tournamentData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
-	document.body.replaceChild(createTopButtons({type: "user"}, tournamentData),
+    if(decryptedMessage.type == "editOneTournamentData") {
+	document.body.replaceChild(createTopButtons({type: "user"}, decryptedMessage.content),
 				   document.getElementById("myDiv1"));
-	document.body.replaceChild(createTournamentEditView(tournamentData),
+	document.body.replaceChild(createTournamentEditView(decryptedMessage.content),
 				   document.getElementById("myDiv2"));
    }
 
-    if(receivable.type == "editTeams") {
-	var teamData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
+    if(decryptedMessage.type == "editTeams") {
 	document.body.replaceChild(createTopButtons({type: "logout"}, false),
 				   document.getElementById("myDiv1"));
-	document.body.replaceChild(createEditTeamsView(teamData),
+	document.body.replaceChild(createEditTeamsView(decryptedMessage.content),
 				   document.getElementById("myDiv2"));
     }
 
-    if(receivable.type == "adminData") {
-	var adminData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
-//	document.body.replaceChild(createTopButtons(adminData), document.getElementById("myDiv1"));
-	document.body.replaceChild(createAdminView(adminData),
+    if(decryptedMessage.type == "adminData") {
+	document.body.replaceChild(createAdminView(decryptedMessage.content),
 				   document.getElementById("myDiv2"));
     }
 
 
     // the new main method callpoint 
 
-    if(receivable.type == "createGenericEditFrame") {	
-	var inputData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
-	document.body.replaceChild(createTopButtons(inputData), document.getElementById("myDiv1"));
-	document.body.replaceChild(createEditListFrame(inputData),
+    if(decryptedMessage.type == "createGenericEditFrame") {
+	document.body.replaceChild(createTopButtons(decryptedMessage.content),
+				   document.getElementById("myDiv1"));
+	document.body.replaceChild(createEditListFrame(decryptedMessage.content),
 				   document.getElementById("myDiv2"));
     }
 
-    if(receivable.type == "createGenericListFrame") {	
-	var inputData = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
-	document.body.replaceChild(createTopButtons(inputData), document.getElementById("myDiv1"));
-	document.body.replaceChild(createFixedListFrame(inputData),
+    if(decryptedMessage.type == "createGenericListFrame") {
+	document.body.replaceChild(createTopButtons(decryptedMessage.content),
+				   document.getElementById("myDiv1"));
+	document.body.replaceChild(createFixedListFrame(decryptedMessage.content),
 				   document.getElementById("myDiv2"));
     }
-
 }
 
 
@@ -418,7 +430,8 @@ function createTypedObject(id, item, inputData) {
 	    var button = document.createElement('button');
 	    button.appendChild(document.createTextNode(i.text));
 	    button.onclick = function() { sendToServerEncrypted(i.callbackMessage,
-								{ buttonId: i.id,
+								{ buttonId: i.itemId,
+								  buttonData: i.data,
 								  inputData: inputData });
 					  return false;
 					};
@@ -478,6 +491,8 @@ function getTypedObjectTemplateById(item) {
 	if(i.itemType === "button") {
 	    itemList.push( { itemType: "button",
 			     text: i.text,
+			     itemId: i.itemId,
+			     data: i.data,
 			     callbackMessage: i.callbackMessage } );
 	}
     });
@@ -1589,8 +1604,9 @@ function sendToServer(type, content) {
 }
 
 function sendToServerEncrypted(type, content) {
-    var sendable = { type: type,
-		     content: Aes.Ctr.encrypt(JSON.stringify(content), sessionPassword, 128) };
+    var sendable = { type: "payload",
+		     content: Aes.Ctr.encrypt(JSON.stringify({ type: type, content: content }),
+					      sessionPassword, 128) };
     mySocket.send(JSON.stringify(sendable));
 }
 
