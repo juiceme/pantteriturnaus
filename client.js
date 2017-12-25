@@ -64,9 +64,6 @@ function handleIncomingMessage(decryptedMessage) {
    }
 
     if(decryptedMessage.type == "showTournament") {
-
-	console.log("webview: " + JSON.stringify(decryptedMessage.content));
-
 	var wnd = window.document.open("about:blank", "", "scrollbars=yes");
 	wnd.document.write(decryptedMessage.content);
 	wnd.document.close();
@@ -165,7 +162,7 @@ function createFixedItemList(inputData) {
     hRow1.appendChild(document.createElement('td'));
     inputData.itemList.header.forEach(function(h) {
 	var cell= hRow1.insertCell();
-	cell.innerHTML = "<b>" + uiText(h.text) + "</b>";
+	cell.innerHTML = "<b>" + h.text + "</b>";
 	hRow1.appendChild(cell);
     });
     var count = 1;
@@ -182,19 +179,19 @@ function createFixedItemList(inputData) {
 }
 
 function createEditableItemList(inputData) {
-    var table = document.createElement('table');
+  var table = document.createElement('table');
     var tableHeader = document.createElement('thead');
     var tableBody = document.createElement('tbody');
 
     var hRow0 = tableHeader.insertRow();
     var cell = hRow0.insertCell();
     cell.colSpan = inputData.itemList.header.length + 2;
-    cell.innerHTML = "<b>" + uiText(inputData.itemList.title) + "</b>";
+    cell.innerHTML = "<b>" + inputData.itemList.title + "</b>";
     var hRow1 = tableHeader.insertRow();
     hRow1.appendChild(document.createElement('td'));
     inputData.itemList.header.forEach(function(h) {
 	var cell= hRow1.insertCell();
-	cell.innerHTML = "<b>" + uiText(h.text) + "</b>";
+	cell.innerHTML = "<b>" + h.text + "</b>";
 	hRow1.appendChild(cell);
     });
     var count = 1;
@@ -250,7 +247,7 @@ function createAcceptButtons(inputData) {
 	    var freshData = { user: inputData.user, priviliges: inputData.priviliges,
 			      itemList: { title: inputData.itemList.title,
 					  header: inputData.itemList.header,
-					  items: refreshInputDataItems(inputData),
+					  items: refreshInputDataItems(inputData, false),
 					  newItem: inputData.itemList.newItem },
 			      buttonList: inputData.buttonList };
 	    sendToServerEncrypted(b.callbackMessage, freshData);
@@ -310,10 +307,10 @@ function createEditTableItem(id, count, inputData, item, lastRow) {
 }
 
 function createNewItemToList(inputData, button) {
-    var newItemList = refreshInputDataItems(inputData);
+    var newItemList = refreshInputDataItems(inputData, true);
     var bottomItem = [];    
     inputData.itemList.newItem.forEach(function(i) {
-	bottomItem.push(getTypedObjectTemplateById(i));
+	bottomItem.push(getTypedObjectTemplateById(i, true));
     });
     newItemList.push(bottomItem);
     
@@ -338,13 +335,13 @@ function deleteItemFromList(inputData, button) {
     return false;
 }
 
-function refreshInputDataItems(inputData) {
+function refreshInputDataItems(inputData, fullData) {
     var newItemList = [];
 
     inputData.itemList.items.forEach(function(l) {
 	var newitemRow = [];
 	l.forEach(function(i) {
-	    newitemRow.push(getTypedObjectTemplateById(i));
+	    newitemRow.push(getTypedObjectTemplateById(i, fullData));
 	});
 	newItemList.push(newitemRow);
     });
@@ -458,7 +455,7 @@ function getSelectedItemInList(selectionList) {
     return  selectionList.options[selectionList.selectedIndex].item;
 }
 
-function getTypedObjectTemplateById(item) {
+function getTypedObjectTemplateById(item, fullData) {
     var itemList = [];
 
     item.forEach(function(i) {
@@ -483,10 +480,11 @@ function getTypedObjectTemplateById(item) {
 			     title: i.title } );
 	}
 	if(i.itemType === "selection") {
-	    itemList.push( { itemType: "selection",
-			     key: i.key,
-			     list: i.literalList,
-			     selected: getSelectedItemInList(uiItem) } );
+	    var newSelector = { itemType: "selection",
+				key: i.key,
+				selected: getSelectedItemInList(uiItem) };
+	    if(fullData) { newSelector.list = i.list; }
+	    itemList.push(newSelector);
 	}
 	if(i.itemType === "button") {
 	    itemList.push( { itemType: "button",
@@ -1608,6 +1606,7 @@ function sendToServerEncrypted(type, content) {
 		     content: Aes.Ctr.encrypt(JSON.stringify({ type: type, content: content }),
 					      sessionPassword, 128) };
     mySocket.send(JSON.stringify(sendable));
+    console.log("Sent " + JSON.stringify(sendable).length + " encrypted bytes to server");
 }
 
 
