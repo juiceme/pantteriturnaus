@@ -337,6 +337,9 @@ function createTypedObject(id, item, inputData) {
 	    newItem.itemType = "checkbox";
 	    newItem.key = i.key;
 	    newItem.type = "checkbox";
+	    if(!i.active) {
+		newItem.disabled = "disabled";
+	    }
 	    newItem.id = id++;
 	    i.itemId = newItem.id;
 	    newItem.checked = i.checked;
@@ -352,6 +355,9 @@ function createTypedObject(id, item, inputData) {
 	    myOption.text = "";
 	    myOption.item = "";
 	    myOption.value = 0;
+	    if(!i.active) {
+		newItem.disabled = true;
+	    }
 	    literalList.push(zeroOption);
 	    newItem.add(myOption);
 	    var count = 1;
@@ -382,6 +388,9 @@ function createTypedObject(id, item, inputData) {
 	    newItem.text = i.text;
 	    newItem.callbackMessage = i.callbackMessage;
 	    var button = document.createElement('button');
+	    if(!i.active) {
+		button.disabled = true;
+	    }
 	    button.appendChild(document.createTextNode(i.text));
 	    button.onclick = function() { sendToServerEncrypted(i.callbackMessage,
 								{ buttonId: i.itemId,

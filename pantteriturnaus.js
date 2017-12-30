@@ -586,21 +586,23 @@ function createUiTextArea(key, value, cols, rows) {
     return { itemType: "textarea", key: key, value: value, cols: cols, rows: rows };
 }
 
-function createUiCheckBox(key, checked, title) {
+function createUiCheckBox(key, checked, title, active) {
     if(title === undefined) { title = ""; }
-    return { itemType: "checkbox", key: key, checked: checked, title: title };
+    if(active === undefined) { active = true; }
+    return { itemType: "checkbox", key: key, checked: checked, title: title, active: active };
 }
 
-function createUiSelectionList(key, list, selected) {
+function createUiSelectionList(key, list, selected, active) {
     var listItems = list.map(function(i) {
 	return { text: i, item: i }
     }).filter(function(f) { return f; });
-
-    return { itemType: "selection", key: key, list: listItems, selected: selected };
+    if(active === undefined) { active = true; }
+    return { itemType: "selection", key: key, list: listItems, selected: selected, active: active };
 }
 
-function createUiButton(text, callbackMessage, data) {
-    return { itemType: "button", text: text, callbackMessage: callbackMessage, data: data };
+function createUiButton(text, callbackMessage, data, active) {
+    if(active === undefined) { active = true; }
+    return { itemType: "button", text: text, callbackMessage: callbackMessage, data: data, active: active };
 }
 
 
@@ -650,7 +652,7 @@ function sendTournamentMainData(cookie) {
     tournaments.forEach(function(t) {
 	items.push( [ [ createUiTextNode("name", t.name) ],
 		      [ createUiButton("Tulokset", "getTournamentDataForShow", t.name) ],
-		      [ createUiButton("Muokkaa", "getOneTournamentScoresForEdit", t.name) ] ] );
+		      [ createUiButton("Muokkaa", "getOneTournamentScoresForEdit", t.name, !t.locked) ] ] );
     });
 
     var itemList = { title: "Tournament",
