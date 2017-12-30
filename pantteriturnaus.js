@@ -115,6 +115,10 @@ function handleIncomingMessage(cookie, decryptedMessage) {
     if(stateIs(cookie, "loggedIn")) {
 	if(decryptedMessage.type === "getTournamentDataForShow") {
 	    processTournamentDataShow(cookie, decryptedMessage.content); }
+	if(decryptedMessage.type === "getTournamentsDataForEdit") {
+	    processGetTournamentsDataForEdit(cookie, decryptedMessage.content); }
+	if(decryptedMessage.type === "saveAllTournamentsData") {
+	    processSaveAllTournamentsData(cookie, decryptedMessage.content); }
 	if(decryptedMessage.type === "getOneTournamentScoresForEdit") {
             processOneTournamentScoresEdit(cookie, decryptedMessage.content); }
 	if(decryptedMessage.type === "getTeamsDataForEdit") {
@@ -233,6 +237,93 @@ function processTournamentDataShow(cookie, data) {
     }
 }
 
+function processGetTournamentsDataForEdit(cookie, data) {
+    servicelog("Client #" + cookie.count + " requests tournament data for edit.");
+    if(userHasEditTournamentsPrivilige(cookie.user)) {
+
+	var sendable;
+	var topButtonList =  createTopButtonList(cookie, false);
+	var items = [];
+	datastorage.read("tournaments").tournaments.forEach(function(t) {
+	    items.push([ [ createUiTextArea("name", t.name, 30) ],
+			 [ createUiTextArea("outputfile", t.outputFile, 40) ],
+			 [ createUiCheckBox("locked", t.locked, "locked") ], 
+			 [ createUiButton("Muokkaa", "getSingleTournamentForEdit", t.name) ] ]);
+	});
+
+	var itemList = { title: "Tournaments",
+			 header: [ { text: "Name" }, { text: "Outputfile" }, { text: "Locked" },  { text: "Edit" }],
+			 items: items,
+			 newItem: [ [ createUiTextArea("name", "<name>", 30) ],
+				    [ createUiTextArea("outputfile", "<outputfile>", 40) ],
+				    [ createUiCheckBox("locked", false, "locked") ],
+				    [ createUiTextNode("", "", 25) ] ] };
+
+	sendable = { type: "createGenericEditFrame",
+		     content: { user: cookie.user.username,
+				priviliges: cookie.user.applicationData.priviliges,
+				topButtonList: topButtonList,
+				itemList: itemList,
+				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveAllTournamentsData" },
+					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
+
+	sendCipherTextToClient(cookie, sendable);
+	servicelog("Sent NEW tournamentData to client #" + cookie.count);
+    } else {
+	servicelog("user has insufficent priviliges to edit tournaments.");
+	sendTournamentMainData(cookie);
+    }
+}
+
+function processSaveAllTournamentsData(cookie, data) {
+    servicelog("Client #" + cookie.count + " requests tournament data saving: " + JSON.stringify(data));
+    if(userHasEditTournamentsPrivilige(cookie.user)) {
+	if(data.itemList === undefined) {
+	    servicelog("tournamentData does not contain itemList");
+	    sendTournamentMainData(cookie);
+	    return;
+	}
+	if(data.itemList.items === undefined) {
+	    servicelog("itemList does not contain items");
+	    sendTournamentMainData(cookie);
+	    return;
+	}
+	updateAllTournamentsDataFromClient(cookie, extractTournamentsDataFromInputData(data.itemList));
+    } else {
+	servicelog("user has insufficent priviliges to edit tournament data");
+    }
+    sendTournamentMainData(cookie);
+}
+
+function updateAllTournamentsDataFromClient(cookie, data) {
+    var newTournaments = [];
+    var oldTournaments = datastorage.read("tournaments").tournaments;
+    data.forEach(function(t) {
+	var flag = true;
+	oldTournaments.forEach(function(u) {
+	    if(t.name === u.name) {
+		flag = false;
+		newTournaments.push({ name: t.name,
+				      outputFile: t.outputFile,
+				      locked: t.locked,
+				      games: u.games });
+	    }
+	});
+	if(flag) {
+	    newTournaments.push({ name: t.name,
+				  outputFile: t.outputFile,
+				  locked: t.locked,
+				  games: [] })
+	}
+    });
+
+    if(datastorage.write("tournaments", { tournaments: newTournaments }) === false) {
+	servicelog("Tournaments database write failed");
+    } else {
+	servicelog("Updated tournaments database");
+    }
+}
+
 function processOneTournamentScoresEdit(cookie, data) {
     try {
 	var tournamentName = data.buttonData;
@@ -265,7 +356,6 @@ function processOneMatchScoresForEdit(cookie, data) {
 }
 
 function processTeamsDataEdit(cookie, content) {
-    var sendable;
     servicelog("Client #" + cookie.count + " requests teams edit");
     if(userHasEditTeamsPrivilige(cookie.user)) {
 	var sendable;
@@ -470,10 +560,8 @@ function processGainAdminMode(cookie, content) {
 }
 
 function processSaveAdminData(cookie, data) {
-    var sendable;
     servicelog("Client #" + cookie.count + " requests admin data saving: " + JSON.stringify(data));
     if(userHasSysAdminPrivilige(cookie.user)) {
-
 	if(data.itemList === undefined) {
 	    servicelog("adminData does not contain itemList");
 	    sendTournamentMainData(cookie);
@@ -1001,27 +1089,37 @@ function getNewChallenge() {
 
 // input data formatters
 
-function extractTeamsDataFromInputData(teamsdata) {
+function extractTournamentsDataFromInputData(data) {
+    var tournaments = [];
+    data.items.forEach(function(t) {
+	tournaments.push({ name: t[0][0].value,
+			   outputFile: t[1][0].value,
+			   locked: t[2][0].checked });
+    });
+    return tournaments;
+}
+
+function extractTeamsDataFromInputData(data) {
     var teams = [];
-    teamsdata.items.forEach(function(t) {
+    data.items.forEach(function(t) {
 	teams.push({ id: t[0][0].text,
 		     name: t[1][0].value });
     });
     return teams;
 }
 
-function extractSingleTeamDataFromInputData(teamData) {
+function extractSingleTeamDataFromInputData(data) {
     var players = [];
-    teamData.items.forEach(function(p) {
+    data.items.forEach(function(p) {
 	players.push({ name: p[0][0].value,
 		       number: p[1][0].value });
     });
     return players;
 }
 
-function extractMatchScoresFromInputData(matchData) {
+function extractMatchScoresFromInputData(data) {
     var scores = [];
-    matchData.items.forEach(function(m) {
+    data.items.forEach(function(m) {
 	var scorer = { name: m[3][0].selected.slice(0, m[3][0].selected.indexOf(' / ')),
 		       number: m[3][0].selected.slice(m[3][0].selected.indexOf(' / ') + 3, m[3][0].selected.length) };
 	var passer = { name: m[4][0].selected.slice(0, m[4][0].selected.indexOf(' / ')),
@@ -1035,9 +1133,9 @@ function extractMatchScoresFromInputData(matchData) {
     return scores;
 }
 
-function extractUserListFromInputData(userData) {
+function extractUserListFromInputData(data) {
     var userList = [];
-    userData.forEach(function(u) {
+    data.forEach(function(u) {
 	var user = { applicationData: { priviliges: [] } };
 	u.forEach(function(row) {
 	    if(row.length === 1) {
