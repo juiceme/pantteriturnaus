@@ -245,16 +245,19 @@ function processGetTournamentsDataForEdit(cookie, data) {
 	var topButtonList =  createTopButtonList(cookie, false);
 	var items = [];
 	datastorage.read("tournaments").tournaments.forEach(function(t) {
-	    items.push([ [ createUiTextArea("name", t.name, 30) ],
+	    items.push([ [ createUiTextNode("id", t.id, 10) ],
+			 [ createUiTextArea("name", t.name, 30) ],
 			 [ createUiTextArea("outputfile", t.outputFile, 40) ],
 			 [ createUiCheckBox("locked", t.locked, "locked") ], 
 			 [ createUiButton("Muokkaa", "getSingleTournamentForEdit", t.name) ] ]);
 	});
 
 	var itemList = { title: "Tournaments",
-			 header: [ { text: "Name" }, { text: "Outputfile" }, { text: "Locked" },  { text: "Edit" }],
+			 header: [ { text: "Id" }, { text: "Name" }, { text: "Outputfile" },
+				   { text: "Locked" },  { text: "Edit" }],
 			 items: items,
-			 newItem: [ [ createUiTextArea("name", "<name>", 30) ],
+			 newItem: [ [ createUiTextNode("id", "", 10) ],
+				    [ createUiTextArea("name", "<name>", 30) ],
 				    [ createUiTextArea("outputfile", "<outputfile>", 40) ],
 				    [ createUiCheckBox("locked", false, "locked") ],
 				    [ createUiTextNode("", "", 25) ] ] };
@@ -278,50 +281,43 @@ function processGetTournamentsDataForEdit(cookie, data) {
 function processSaveAllTournamentsData(cookie, data) {
     servicelog("Client #" + cookie.count + " requests tournament data saving: " + JSON.stringify(data));
     if(userHasEditTournamentsPrivilige(cookie.user)) {
-	if(data.itemList === undefined) {
-	    servicelog("tournamentData does not contain itemList");
+	if(inputItemsFailVerification(data)) {
 	    sendTournamentMainData(cookie);
 	    return;
 	}
-	if(data.itemList.items === undefined) {
-	    servicelog("itemList does not contain items");
-	    sendTournamentMainData(cookie);
-	    return;
+	var newTournaments = [];
+	var oldTournaments = datastorage.read("tournaments").tournaments;
+	var nextId = datastorage.read("tournaments").nextId;
+	var tournamentData = extractTournamentsDataFromInputData(data.itemList);
+	tournamentData.forEach(function(t) {
+	    var flag = true;
+	    oldTournaments.forEach(function(u) {
+		if(t.id === u.id) {
+		    flag = false;
+		    newTournaments.push({ name: t.name,
+					  id: t.id,
+					  outputFile: t.outputFile,
+					  locked: t.locked,
+					  games: u.games });
+		}
+	    });
+	    if(flag) {
+		newTournaments.push({ name: t.name,
+				      id: nextId++,
+				      outputFile: t.outputFile,
+				      locked: t.locked,
+				      games: [] });
+	    }
+	});
+	if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
+	    servicelog("Tournaments database write failed");
+	} else {
+	    servicelog("Updated tournaments database");
 	}
-	updateAllTournamentsDataFromClient(cookie, extractTournamentsDataFromInputData(data.itemList));
     } else {
 	servicelog("user has insufficent priviliges to edit tournament data");
     }
     sendTournamentMainData(cookie);
-}
-
-function updateAllTournamentsDataFromClient(cookie, data) {
-    var newTournaments = [];
-    var oldTournaments = datastorage.read("tournaments").tournaments;
-    data.forEach(function(t) {
-	var flag = true;
-	oldTournaments.forEach(function(u) {
-	    if(t.name === u.name) {
-		flag = false;
-		newTournaments.push({ name: t.name,
-				      outputFile: t.outputFile,
-				      locked: t.locked,
-				      games: u.games });
-	    }
-	});
-	if(flag) {
-	    newTournaments.push({ name: t.name,
-				  outputFile: t.outputFile,
-				  locked: t.locked,
-				  games: [] })
-	}
-    });
-
-    if(datastorage.write("tournaments", { tournaments: newTournaments }) === false) {
-	servicelog("Tournaments database write failed");
-    } else {
-	servicelog("Updated tournaments database");
-    }
 }
 
 function processOneTournamentScoresEdit(cookie, data) {
@@ -393,8 +389,7 @@ function processTeamsDataEdit(cookie, content) {
 function processSaveAllTeamsData(cookie, data) {
     servicelog("Client #" + cookie.count + " requests teams data saving: " + JSON.stringify(data));
     if(userHasEditTeamsPrivilige(cookie.user)) {
-	if(data.itemList === undefined) {
-	    servicelog("teamData does not contain itemList");
+	if(inputItemsFailVerification(data)) {
 	    sendTournamentMainData(cookie);
 	    return;
 	}
@@ -470,8 +465,7 @@ function processGetSingleTeamForEdit(cookie, data) {
 function processSaveSingleTeamData(cookie, data) {
     servicelog("Client #" + cookie.count + " requests single team saving: " + JSON.stringify(data));
     if(userHasEditTeamsPrivilige(cookie.user)) {
-	if(data.itemList === undefined) {
-	    servicelog("teamData does not contain itemList");
+	if(inputItemsFailVerification(data)) {
 	    sendTournamentMainData(cookie);
 	    return;
 	}
@@ -562,13 +556,7 @@ function processGainAdminMode(cookie, content) {
 function processSaveAdminData(cookie, data) {
     servicelog("Client #" + cookie.count + " requests admin data saving: " + JSON.stringify(data));
     if(userHasSysAdminPrivilige(cookie.user)) {
-	if(data.itemList === undefined) {
-	    servicelog("adminData does not contain itemList");
-	    sendTournamentMainData(cookie);
-	    return;
-	}
-	if(data.itemList.items === undefined) {
-	    servicelog("itemList does not contain items");
+	if(inputItemsFailVerification(data)) {
 	    sendTournamentMainData(cookie);
 	    return;
 	}
@@ -782,8 +770,7 @@ function sendOneMatchForScoresEdit(cookie, match) {
 function processSaveMatchScores(cookie, data) {
     servicelog("Client #" + cookie.count + " requests match scores saving: " + JSON.stringify(data));
     if(userHasEditScoresPrivilige(cookie.user)) {
-	if(data.itemList === undefined) {
-	    servicelog("matchData does not contain itemList");
+	if(inputItemsFailVerification(data)) {
 	    sendTournamentMainData(cookie);
 	    return;
 	}
@@ -1087,14 +1074,27 @@ function getNewChallenge() {
 }
 
 
-// input data formatters
+// input data verification and formatters
+
+function inputItemsFailVerification(inputData) {
+    if(inputData.itemList === undefined) {
+	servicelog("inputData does not contain itemList");
+	return true;
+    }
+    if(inputData.itemList.items === undefined) {
+	servicelog("inputData.itemList does not contain items");
+	return true;
+    }
+    return false;
+}
 
 function extractTournamentsDataFromInputData(data) {
     var tournaments = [];
     data.items.forEach(function(t) {
-	tournaments.push({ name: t[0][0].value,
-			   outputFile: t[1][0].value,
-			   locked: t[2][0].checked });
+	tournaments.push({ id: t[0][0].text,
+			   name: t[1][0].value,
+			   outputFile: t[2][0].value,
+			   locked: t[3][0].checked });
     });
     return tournaments;
 }
