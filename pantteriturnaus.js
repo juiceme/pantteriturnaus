@@ -8,6 +8,7 @@ var sha1 = require('./crypto/sha1.js');
 var datastorage = require('./datastorage/datastorage.js');
 
 var globalSalt = sha1.hash(JSON.stringify(new Date().getTime()));
+var DatabaseVersion = 1;
 
 function servicelog(s) {
     console.log((new Date()) + " --- " + s);
@@ -31,7 +32,7 @@ function sendCipherTextToClient(cookie, sendable) {
 }
 
 function getClientVariables() {
-    return "var WEBSOCK_PORT = " + mainConfig.main.port + ";\n";
+    return "var WEBSOCK_PORT = " + mainConfig.port + ";\n";
 }
 
 var webServer = http.createServer(function(request,response){
@@ -1342,7 +1343,8 @@ function getUserByHashedName(hash) {
 }
 
 // datastorage.setLogger(servicelog);
-datastorage.initialize("main", { main: { port: 8080,
+datastorage.initialize("main", { main: { version: DatabaseVersion,
+					 port: 8080,
 					 siteFullUrl: "http://url.to.pantterilasku/" } });
 datastorage.initialize("users", { users: [ { username: "test",
 					     hash: "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
@@ -1357,10 +1359,75 @@ datastorage.initialize("tournaments", { nextId: 1,
 					tournaments: [ ] }, true);
 datastorage.initialize("teams", { nextId: 1,
 				  teams: [ ] }, true);
-var mainConfig = datastorage.read("main");
 
-webServer.listen(mainConfig.main.port, function() {
-    servicelog("Waiting for client connection to port " + mainConfig.main.port + "...");
+var mainConfig = datastorage.read("main").main;
+
+if(mainConfig.version === undefined) { mainConfig.version = 0; }
+if(mainConfig.version > DatabaseVersion) {
+    servicelog("Database version is too high for this program release, please update program.");
+    process.exit(1);
+}
+if(mainConfig.version < DatabaseVersion) {
+    servicelog("Updating database version to most recent supported by this program release.");
+    if(mainConfig.version === 0) {
+	// update database version from 0 to 1
+	var newTeams = [];
+	var nextId = 1;
+	datastorage.read("teams").teams.forEach(function(t) {
+	    newTeams.push({ id: nextId++,
+			    name: t.name,
+			    players: t.players });
+	});
+	if(datastorage.write("teams", { nextId: nextId, teams: newTeams }) === false) {
+	    servicelog("Updated teams database write failed");
+	    process.exit(1);
+	} else {
+	    servicelog("Updated teams database");
+	}
+	var newTournaments = [];
+	var nextId = 1;
+	datastorage.read("tournaments").tournaments.forEach(function(t) {
+	    var newGames = [];
+	    t.games.forEach(function(g) {
+		var newScores = [];
+		g.scores.forEach(function(s) {
+		    newScores.push({ point: getTeamIdFromName(s.point),
+				     type: s.type,
+				     time: s.time,
+				     scorer: s.scorer,
+				     passer: s.passer });
+		});
+		newGames.push({ round: g.round,
+				home: getTeamIdFromName(g.home),
+				guest: getTeamIdFromName(g.guest),
+				result: g.result,
+				time: g.time,
+				scores: newScores });
+	    });
+	    newTournaments.push({ id: nextId++,
+				  name: t.name,
+				  locked: t.locked,
+				  outputFile: t.outputFile,
+				  games: newGames });
+	});
+	if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
+	    servicelog("Updated tournaments database write failed");
+	    process.exit(1);
+	} else {
+	    servicelog("Updated tournaments database");
+	}
+	mainConfig.version = DatabaseVersion;
+	if(datastorage.write("main", { main: mainConfig }) === false) {
+	    servicelog("Updated main database write failed");
+	    process.exit(1);
+	} else {
+	    servicelog("Updated main database");
+	}
+    }
+}
+
+webServer.listen(mainConfig.port, function() {
+    servicelog("Waiting for client connection to port " + mainConfig.port + "...");
 });
 
 
