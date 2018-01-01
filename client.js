@@ -440,12 +440,14 @@ function getTypedObjectTemplateById(item, fullData) {
 	    itemList.push( { itemType: "checkbox",
 			     key: i.key,
 			     checked: uiItem.checked,
-			     title: i.title } );
+			     title: i.title,
+			     active: i.active } );
 	}
 	if(i.itemType === "selection") {
 	    var newSelector = { itemType: "selection",
 				key: i.key,
-				selected: getSelectedItemInList(uiItem) };
+				selected: getSelectedItemInList(uiItem),
+				active: i.active };
 	    if(fullData) { newSelector.list = i.list; }
 	    itemList.push(newSelector);
 	}
@@ -454,7 +456,8 @@ function getTypedObjectTemplateById(item, fullData) {
 			     text: i.text,
 			     itemId: i.itemId,
 			     data: i.data,
-			     callbackMessage: i.callbackMessage } );
+			     callbackMessage: i.callbackMessage,
+			     active: i.active } );
 	}
     });
 
