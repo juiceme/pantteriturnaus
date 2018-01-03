@@ -257,6 +257,7 @@ function processGetTournamentsDataForEdit(cookie, data) {
 	});
 
 	var itemList = { title: "Tournaments",
+			 frameId: 0,
 			 header: [ { text: "Id" }, { text: "Name" }, { text: "Outputfile" },
 				   { text: "Locked" },  { text: "Edit" }],
 			 items: items,
@@ -266,11 +267,13 @@ function processGetTournamentsDataForEdit(cookie, data) {
 				    [ createUiCheckBox("locked", false, "locked") ],
 				    [ createUiTextNode("", "", 25) ] ] };
 
-	sendable = { type: "createGenericEditFrame",
+	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
+
+	sendable = { type: "createUiPage",
 		     content: { user: cookie.user.username,
 				priviliges: cookie.user.applicationData.priviliges,
 				topButtonList: topButtonList,
-				itemList: itemList,
+				frameList: frameList,
 				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveAllTournamentsData" },
 					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
 
@@ -340,17 +343,20 @@ function processGetSingleTournamentForEdit(cookie, data) {
 	});
 
 	var itemList = { title: "Game",
+			 frameId: 0,
 			 header: [ { text: "Home" }, { text: "Guest" }, { text: "time" } ],
 			 items: items,
 			 newItem: [ [ createUiTextArea("time", "<time>", 20) ],
 				    [ createUiSelectionList("home", createTeamList(), "") ],
 				    [ createUiSelectionList("guest", createTeamList(), "") ] ] };
 
-	sendable = { type: "createGenericEditFrame",
+	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
+
+	sendable = { type: "createUiPage",
 		     content: { user: cookie.user.username,
 				priviliges: cookie.user.applicationData.priviliges,
 				topButtonList: topButtonList,
-				itemList: itemList,
+				frameList: frameList,
 				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveTournamentGameData", data: tournament.id },
 					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
 
@@ -441,17 +447,20 @@ function processTeamsDataEdit(cookie, content) {
 	});
 
 	var itemList = { title: "Teams",
+			 frameId: 0,
 			 header: [ { text: "Id" }, { text: "Name" }, { text: "" } ],
 			 items: items,
 			 newItem: [ [ createUiTextNode("id", "", 10) ],
 				    [ createUiTextArea("name", "<name>", 25) ],
 				    [ createUiTextNode("", "", 25) ] ] };
 
-	sendable = { type: "createGenericEditFrame",
+	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
+
+	sendable = { type: "createUiPage",
 		     content: { user: cookie.user.username,
 				priviliges: cookie.user.applicationData.priviliges,
 				topButtonList: topButtonList,
-				itemList: itemList,
+				frameList: frameList,
 				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveAllTeamsData" },
 					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
 
@@ -513,16 +522,19 @@ function processGetSingleTeamForEdit(cookie, data) {
 	});
 
 	var itemList = { title: data.buttonData,
+			 frameId: 0,
 			 header: [ { text: "Name" }, { text: "Number" } ],
 			 items: items,
 			 newItem: [ [ createUiTextArea("name", "<name>", 25) ],
 				    [ createUiTextArea("number", "<x>", 25) ] ] };
 
-	sendable = { type: "createGenericEditFrame",
+	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
+
+	sendable = { type: "createUiPage",
 		     content: { user: cookie.user.username,
 				priviliges: cookie.user.applicationData.priviliges,
 				topButtonList: topButtonList,
-				itemList: itemList,
+				frameList: frameList,
 				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveSingleTeamData", data: data.buttonData },
 					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
 
@@ -591,6 +603,7 @@ function processGainAdminMode(cookie, content) {
 	});
 
 	var itemList = { title: "User Admin Data",
+			 frameId: 0,
 			 header: [ { text: "username" }, { text: "realname" }, { text: "email" },
 				   { text: "phone" }, { text: "V / S / Te / To / A" } ],
 			 items: items,
@@ -604,11 +617,13 @@ function processGainAdminMode(cookie, content) {
 				      createUiCheckBox("tournament-edit", false, "to"),
 				      createUiCheckBox("system-admin", false, "a") ] ] };
 
-	sendable = { type: "createGenericEditFrame",
+	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
+
+	sendable = { type: "createUiPage",
 		     content: { user: cookie.user.username,
 				priviliges: cookie.user.applicationData.priviliges,
 				topButtonList: topButtonList,
-				itemList: itemList,
+				frameList: frameList,
 				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveAdminData" },
 					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
 
@@ -728,14 +743,17 @@ function sendTournamentMainData(cookie) {
     });
 
     var itemList = { title: "Tournament",
+		     frameId: 0,
 		     header: [ { text: "" }, { text: "" }, { text: "" } ],
 		     items: items };
 
-    sendable = { type: "createGenericListFrame",
+    var frameList = [ { frameType: "fixedListFrame", frame: itemList } ];
+
+    sendable = { type: "createUiPage",
 		 content: { user: cookie.user.username,
 			    priviliges: cookie.user.applicationData.priviliges,
 			    topButtonList: topButtonList,
-			    itemList: itemList } };
+			    frameList: frameList } };
 
     sendCipherTextToClient(cookie, sendable);
     servicelog("Sent NEW tournamentMainData to client #" + cookie.count);
@@ -756,17 +774,20 @@ function sendOneTournamentForScoresEdit(cookie, tournament) {
     });
 
     var itemList = { title: tournament.name,
+		     frameId: 0,
 		     header: [ { text: "Aika" }, { text: "Koti" }, { text: "Vieras" },
 			       { text: "Tulos" }, {text: ""} ],
 		     items: items };
 
     var buttonList =  [ { id: 501, text: "OK", callbackMessage: "resetToMain" } ];
 
-    sendable = { type: "createGenericListFrame",
+    var frameList = [ { frameType: "fixedListFrame", frame: itemList } ];
+
+    sendable = { type: "createUiPage",
 		 content: { user: cookie.user.username,
 			    priviliges: cookie.user.applicationData.priviliges,
 			    topButtonList: topButtonList,
-			    itemList: itemList,
+			    frameList: frameList,
 			    buttonList: buttonList } };
 			    
     sendCipherTextToClient(cookie, sendable);
@@ -828,6 +849,7 @@ function sendOneMatchForScoresEdit(cookie, match) {
 	});
 
     var itemList = { title: getTeamNameFromId(match.home) + " vs. " + getTeamNameFromId(match.guest),
+		     frameId: 0,
 		     header: [ { text: "piste" }, { text: "tyyppi" }, { text: "aika" },
 			       { text: "tekijä" }, { text: "syöttäjä" } ],
 		     items: items,
@@ -839,11 +861,13 @@ function sendOneMatchForScoresEdit(cookie, match) {
 				[ createUiSelectionList("syöttäjä", createPlayerList(match), "") ]
 			      ] };
 
-    sendable = { type: "createGenericEditFrame",
+    var frameList = [ { frameType: "editListFrame", frame: itemList } ];
+
+    sendable = { type: "createUiPage",
 		 content: { user: cookie.user.username,
 			    priviliges: cookie.user.applicationData.priviliges,
 			    topButtonList: topButtonList,
-			    itemList: itemList,
+			    frameList: frameList,
 			    buttonList: [ { id: 501, text: "OK", callbackMessage: "saveMatchScores", data: match.id },
 					  { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
 
@@ -1163,16 +1187,12 @@ function getNewChallenge() {
 // input data verification and formatters
 
 function inputItemsFailVerification(inputData) {
-    if(inputData.itemList === undefined) {
-	servicelog("inputData does not contain itemList");
-	return true;
-    }
-    if(inputData.itemList.items === undefined) {
-	servicelog("inputData.itemList does not contain items");
+    if(inputData.items === undefined) {
+	servicelog("inputData does not contain items");
 	return true;
     }
     if(inputData.buttonList === undefined) {
-	servicelog("buttonList does not exist");
+	servicelog("inputData does not contain buttonList");
 	return true;
     }
     return false;
@@ -1184,13 +1204,15 @@ function extractGamesDataFromInputData(data) {
     }
     var games = [];
     var round = 1;
-    data.itemList.items.forEach(function(g) {
-	games.push({ round: round++,
-		     time: g[0][0].value,
-		     home: getTeamIdFromName(g[1][0].selected),
-		     guest: getTeamIdFromName(g[2][0].selected),
-		     result: "-",
-		     scores: [] });
+    data.items.forEach(function(i) {
+	i.frame.forEach(function(g) {
+	    games.push({ round: round++,
+			 time: g[0][0].value,
+			 home: getTeamIdFromName(g[1][0].selected),
+			 guest: getTeamIdFromName(g[2][0].selected),
+			 result: "-",
+			 scores: [] });
+	});
     });
     return games;
 }
@@ -1200,20 +1222,27 @@ function extractTournamentsDataFromInputData(data) {
 	return null;
     }
     var tournaments = [];
-    data.itemList.items.forEach(function(t) {
-	tournaments.push({ id: t[0][0].text,
-			   name: t[1][0].value,
-			   outputFile: t[2][0].value,
-			   locked: t[3][0].checked });
+    data.items.forEach(function(i) {
+	i.frame.forEach(function(t) {
+	    tournaments.push({ id: t[0][0].text,
+			       name: t[1][0].value,
+			       outputFile: t[2][0].value,
+			       locked: t[3][0].checked });
+	});
     });
     return tournaments;
 }
 
 function extractTeamsDataFromInputData(data) {
+    if(inputItemsFailVerification(data)) {
+	return null;
+    }
     var teams = [];
-    data.itemList.items.forEach(function(t) {
-	teams.push({ id: t[0][0].text,
-		     name: t[1][0].value });
+    data.items.forEach(function(i) {
+	i.frame.forEach(function(t) {
+	    teams.push({ id: t[0][0].text,
+			 name: t[1][0].value });
+	});
     });
     return teams;
 }
@@ -1223,9 +1252,11 @@ function extractSingleTeamDataFromInputData(data) {
 	return null;
     }
     var players = [];
-    data.itemList.items.forEach(function(p) {
-	players.push({ name: p[0][0].value,
-		       number: p[1][0].value });
+    data.items.forEach(function(i) {
+	i.frame.forEach(function(p) {
+	    players.push({ name: p[0][0].value,
+			   number: p[1][0].value });
+	});
     });
     return players;
 }
@@ -1235,16 +1266,18 @@ function extractMatchScoresFromInputData(data) {
 	return null;
     }
     var scores = [];
-    data.itemList.items.forEach(function(m) {
-	var scorer = { name: m[3][0].selected.slice(0, m[3][0].selected.indexOf(' / ')),
-		       number: m[3][0].selected.slice(m[3][0].selected.indexOf(' / ') + 3, m[3][0].selected.length) };
-	var passer = { name: m[4][0].selected.slice(0, m[4][0].selected.indexOf(' / ')),
-		       number: m[4][0].selected.slice(m[4][0].selected.indexOf(' / ') + 3, m[4][0].selected.length) };
-	scores.push({ point: getTeamIdFromName(m[0][0].selected),
-		      type: m[1][0].selected,
-		      time: m[2][0].value,
-		      scorer: scorer,
-		      passer: passer });
+    data.items.forEach(function(i) {
+	i.frame.forEach(function(m) {
+	    var scorer = { name: m[3][0].selected.slice(0, m[3][0].selected.indexOf(' / ')),
+			   number: m[3][0].selected.slice(m[3][0].selected.indexOf(' / ') + 3, m[3][0].selected.length) };
+	    var passer = { name: m[4][0].selected.slice(0, m[4][0].selected.indexOf(' / ')),
+			   number: m[4][0].selected.slice(m[4][0].selected.indexOf(' / ') + 3, m[4][0].selected.length) };
+	    scores.push({ point: getTeamIdFromName(m[0][0].selected),
+			  type: m[1][0].selected,
+			  time: m[2][0].value,
+			  scorer: scorer,
+			  passer: passer });
+	});
     });
     return scores;
 }
@@ -1254,39 +1287,41 @@ function extractUserListFromInputData(data) {
 	return null;
     }
     var userList = [];
-    data.itemList.items.forEach(function(u) {
-	var user = { applicationData: { priviliges: [] } };
-	u.forEach(function(row) {
-	    if(row.length === 1) {
-		if(row[0].key === "username") {
-		    if(row[0].text !== undefined) {
-			user.username = row[0].text;
-			user.hash = sha1.hash(row[0].text);
+    data.items.forEach(function(i) {
+	i.frame.forEach(function(u) {
+	    var user = { applicationData: { priviliges: [] } };
+	    u.forEach(function(row) {
+		if(row.length === 1) {
+		    if(row[0].key === "username") {
+			if(row[0].text !== undefined) {
+			    user.username = row[0].text;
+			    user.hash = sha1.hash(row[0].text);
+			}
+			if(row[0].value !== undefined) {
+			    user.username = row[0].value;
+			    user.hash = sha1.hash(row[0].value);
+			}
 		    }
-		    if(row[0].value !== undefined) {
-			user.username = row[0].value;
-			user.hash = sha1.hash(row[0].value);
-		    }
+		    if(row[0].key === "realname") { user.realname = row[0].value; }
+		    if(row[0].key === "email") { user.email = row[0].value; }
+		    if(row[0].key === "phone") { user.phone = row[0].value; }
+		} else {
+	    	    row.forEach(function(item) {
+			if(item.key === "view") {
+			    if(item.checked) { user.applicationData.priviliges.push("view"); } }
+			if(item.key === "score-edit") {
+			    if(item.checked) { user.applicationData.priviliges.push("score-edit"); } }
+			if(item.key === "team-edit") {
+			    if(item.checked) { user.applicationData.priviliges.push("team-edit"); } }
+			if(item.key === "tournament-edit") {
+			    if(item.checked) { user.applicationData.priviliges.push("tournament-edit"); } }
+			if(item.key === "system-admin") {
+			    if(item.checked) { user.applicationData.priviliges.push("system-admin"); } }
+		    });
 		}
-		if(row[0].key === "realname") { user.realname = row[0].value; }
-		if(row[0].key === "email") { user.email = row[0].value; }
-		if(row[0].key === "phone") { user.phone = row[0].value; }
-	    } else {
-	    	row.forEach(function(item) {
-		    if(item.key === "view") {
-			if(item.checked) { user.applicationData.priviliges.push("view"); } }
-		    if(item.key === "score-edit") {
-			if(item.checked) { user.applicationData.priviliges.push("score-edit"); } }
-		    if(item.key === "team-edit") {
-			if(item.checked) { user.applicationData.priviliges.push("team-edit"); } }
-		    if(item.key === "tournament-edit") {
-			if(item.checked) { user.applicationData.priviliges.push("tournament-edit"); } }
-		    if(item.key === "system-admin") {
-			if(item.checked) { user.applicationData.priviliges.push("system-admin"); } }
-		});
-	    }
+	    });
+	    userList.push(user);
 	});
-	userList.push(user);
     });
     return userList;
 }

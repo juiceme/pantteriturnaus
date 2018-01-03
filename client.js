@@ -62,17 +62,10 @@ function handleIncomingMessage(decryptedMessage) {
 	wnd.document.close();
     }
 
-    if(decryptedMessage.type == "createGenericEditFrame") {
+    if(decryptedMessage.type == "createUiPage") {
 	document.body.replaceChild(createTopButtons(decryptedMessage.content),
 				   document.getElementById("myDiv1"));
-	document.body.replaceChild(createEditListFrame(decryptedMessage.content),
-				   document.getElementById("myDiv2"));
-    }
-
-    if(decryptedMessage.type == "createGenericListFrame") {
-	document.body.replaceChild(createTopButtons(decryptedMessage.content),
-				   document.getElementById("myDiv1"));
-	document.body.replaceChild(createFixedListFrame(decryptedMessage.content),
+	document.body.replaceChild(createUiPage(decryptedMessage.content),
 				   document.getElementById("myDiv2"));
     }
 }
@@ -80,51 +73,66 @@ function handleIncomingMessage(decryptedMessage) {
 
 // ---------- Parse out UI elements from incoming message
 
-function createEditListFrame(inputData) {
+function createUiPage(inputData) {
     var fieldset = document.createElement('fieldsetset');
 
-    fieldset.appendChild(document.createElement('br'));
-    fieldset.appendChild(createEditableItemList(inputData));
-    fieldset.appendChild(document.createElement('br'));
-    fieldset.appendChild(createAcceptButtons(inputData));
-    fieldset.appendChild(document.createElement('br'));
-    fieldset.id= "myDiv2";
-    return fieldset;
-}
-
-function createFixedListFrame(inputData) {
-    var fieldset = document.createElement('fieldsetset');
-
-    fieldset.appendChild(document.createElement('br'));
-    fieldset.appendChild(createFixedItemList(inputData));
+    inputData.frameList.forEach(function(f) {
+	fieldset.appendChild(document.createElement('br'));
+	if(f.frameType === "fixedListFrame") {
+	    fieldset.appendChild(createFixedListFrame(inputData, f.frame));
+	}
+	if(f.frameType === "editListFrame") {
+	    fieldset.appendChild(createEditListFrame(inputData, f.frame));
+	}
+    });
     fieldset.appendChild(document.createElement('br'));
     if(inputData.buttonList !== undefined) {
 	fieldset.appendChild(createAcceptButtons(inputData));
 	fieldset.appendChild(document.createElement('br'));
     }
+
     fieldset.id= "myDiv2";
+    return fieldset;
+
+}
+
+function createEditListFrame(inputData, frame) {
+    var fieldset = document.createElement('fieldsetset');
+
+    fieldset.appendChild(document.createElement('br'));
+    fieldset.appendChild(createEditableItemList(inputData, frame));
+    fieldset.appendChild(document.createElement('br'));
     return fieldset;
 }
 
-function createFixedItemList(inputData) {
+function createFixedListFrame(inputData, frame) {
+    var fieldset = document.createElement('fieldsetset');
+
+    fieldset.appendChild(document.createElement('br'));
+    fieldset.appendChild(createFixedItemList(inputData, frame));
+    fieldset.appendChild(document.createElement('br'));
+    return fieldset;
+}
+
+function createFixedItemList(inputData, frame) {
     var table = document.createElement('table');
     var tableHeader = document.createElement('thead');
     var tableBody = document.createElement('tbody');
 
     var hRow0 = tableHeader.insertRow();
     var cell = hRow0.insertCell();
-    cell.colSpan = inputData.itemList.header.length + 2;
-    cell.innerHTML = "<b>" + inputData.itemList.title + "</b>";
+    cell.colSpan = frame.header.length + 2;
+    cell.innerHTML = "<b>" + frame.title + "</b>";
     var hRow1 = tableHeader.insertRow();
     hRow1.appendChild(document.createElement('td'));
-    inputData.itemList.header.forEach(function(h) {
+    frame.header.forEach(function(h) {
 	var cell= hRow1.insertCell();
 	cell.innerHTML = "<b>" + h.text + "</b>";
 	hRow1.appendChild(cell);
     });
     var count = 1;
     var id = 1001;
-    inputData.itemList.items.forEach(function(i) {
+    frame.items.forEach(function(i) {
 	var newTableItem = createTableItem(id, count, inputData, i);
 	id = newTableItem.id;
 	tableBody.appendChild(newTableItem.tableRow);
@@ -135,35 +143,34 @@ function createFixedItemList(inputData) {
     return table;
 }
 
-function createEditableItemList(inputData) {
+function createEditableItemList(inputData, frame) {
   var table = document.createElement('table');
     var tableHeader = document.createElement('thead');
     var tableBody = document.createElement('tbody');
 
     var hRow0 = tableHeader.insertRow();
     var cell = hRow0.insertCell();
-    cell.colSpan = inputData.itemList.header.length + 2;
-    cell.innerHTML = "<b>" + inputData.itemList.title + "</b>";
+    cell.colSpan = frame.header.length + 2;
+    cell.innerHTML = "<b>" + frame.title + "</b>";
     var hRow1 = tableHeader.insertRow();
     hRow1.appendChild(document.createElement('td'));
-    inputData.itemList.header.forEach(function(h) {
+    frame.header.forEach(function(h) {
 	var cell= hRow1.insertCell();
 	cell.innerHTML = "<b>" + h.text + "</b>";
 	hRow1.appendChild(cell);
     });
     var count = 1;
     var id = 2001;
-    inputData.itemList.items.forEach(function(i) {
-	var newTableItem = createEditTableItem(id, count, inputData, i, false);
+    frame.items.forEach(function(i) {
+	var newTableItem = createEditTableItem(id, count, inputData, i, frame.frameId, false);
 	id = newTableItem.id;
 	tableBody.appendChild(newTableItem.tableRow);
 	count++;
     });
-    var newItem = inputData.itemList.newItem;
-    tableBody.appendChild(createEditTableItem(id, count, inputData, newItem, true).tableRow);
+    var newItem = frame.newItem;
+    tableBody.appendChild(createEditTableItem(id, count, inputData, newItem, frame.frameId, true).tableRow);
     table.appendChild(tableHeader);
     table.appendChild(tableBody);
-
     return table;
 }
 
@@ -201,11 +208,9 @@ function createAcceptButtons(inputData) {
 	button.appendChild(document.createTextNode(b.text));
 	button.id = b.id;
 	button.onclick = function() {
-	    var freshData = { user: inputData.user, priviliges: inputData.priviliges,
-			      itemList: { title: inputData.itemList.title,
-					  header: inputData.itemList.header,
-					  items: refreshInputDataItems(inputData, false),
-					  newItem: inputData.itemList.newItem },
+	    var freshData = { user: inputData.user,
+			      priviliges: inputData.priviliges,
+			      items: refreshInputDataItems(inputData, false),
 			      buttonList: inputData.buttonList };
 	    sendToServerEncrypted(b.callbackMessage, freshData);
 	    return false;
@@ -232,7 +237,7 @@ function createTableItem(id, count, inputData, item) {
     return { id: id, tableRow: tableRow };
 }
 
-function createEditTableItem(id, count, inputData, item, lastRow) {
+function createEditTableItem(id, count, inputData, item, frameId, lastRow) {
     var tableRow = document.createElement('tr');
     var cell = document.createElement('td');
 
@@ -250,12 +255,14 @@ function createEditTableItem(id, count, inputData, item, lastRow) {
 	var addButton = document.createElement("button");
 	addButton.appendChild(document.createTextNode("Luo uusi"));
 	addButton.id = count;
+	addButton.frameId = frameId;
 	addButton.onclick = function() { createNewItemToList(inputData, this); }
 	lastCell.appendChild(addButton);
     } else {
 	var deleteButton = document.createElement("button");
 	deleteButton.appendChild(document.createTextNode("Poista"));
 	deleteButton.id = count;
+	deleteButton.frameId = frameId;
 	deleteButton.onclick = function() { deleteItemFromList(inputData, this); }
 	lastCell.appendChild(deleteButton);
     }
@@ -265,42 +272,76 @@ function createEditTableItem(id, count, inputData, item, lastRow) {
 
 function createNewItemToList(inputData, button) {
     var newItemList = refreshInputDataItems(inputData, true);
-    var bottomItem = [];    
-    inputData.itemList.newItem.forEach(function(i) {
-	bottomItem.push(getTypedObjectTemplateById(i, true));
-    });
-    newItemList.push(bottomItem);
-    
-    var newData = { user: inputData.user, priviliges: inputData.priviliges,
-	       itemList: { title: inputData.itemList.title, header: inputData.itemList.header,
-			   items: newItemList, newItem: inputData.itemList.newItem },
-	       buttonList: inputData.buttonList };
+    var newFrameList = [];
 
-    document.body.replaceChild(createEditListFrame(newData),
+    inputData.frameList.forEach(function(f) {
+	var bottomItem = [];
+	f.frame.newItem.forEach(function(i) {
+	    bottomItem.push(getTypedObjectTemplateById(i, true));
+	});
+	newItemList[button.frameId].frame.push(bottomItem)
+	var newFrame = { title: f.frame.title,
+			 frameId: f.frame.frameId,
+			 header: f.frame.header,
+			 items: newItemList[button.frameId].frame,
+			 newItem: f.frame.newItem };
+
+	newFrameList.push({ frameType: f.frameType,
+			    frame: newFrame });
+    });
+    var newData = { user: inputData.user,
+		    priviliges: inputData.priviliges,
+		    topButtonList: inputData.topButtonList,
+		    frameList: newFrameList,
+		    buttonList: inputData.buttonList };
+
+    document.body.replaceChild(createUiPage(newData),
 			       document.getElementById("myDiv2"));
     return false;
 }
 
 function deleteItemFromList(inputData, button) {
-    var newList = inputData.itemList.items.map(function(a,b) {
-	if(b != (button.id -1)) { return a; }
-    }).filter(function(s){ return s; });
-    inputData.itemList.items = newList;
+    var newFrameList = [];
 
-    document.body.replaceChild(createEditListFrame(inputData),
+    inputData.frameList.forEach(function(f) {
+	if(f.frame.frameId !== button.frameId) {
+	    newFrameList.push(f);
+	} else {
+	    var newItems = [];
+	    var count = 1;
+	    f.frame.items.forEach(function(i) {
+		if(count++ !== parseInt(button.id)) {
+		    newItems.push(i);
+		}
+	    });
+	    newFrameList.push( { frameType: f.frameType,
+				 frame: { title: f.frame.title,
+			 		  frameId: f.frame.frameId,
+					  header: f.frame.header,
+					  items: newItems,
+					  newItem: f.frame.newItem } });
+	}
+    });
+    inputData.frameList = newFrameList;
+
+    document.body.replaceChild(createUiPage(inputData),
 			       document.getElementById("myDiv2"));
     return false;
 }
 
 function refreshInputDataItems(inputData, fullData) {
     var newItemList = [];
-
-    inputData.itemList.items.forEach(function(l) {
-	var newitemRow = [];
-	l.forEach(function(i) {
-	    newitemRow.push(getTypedObjectTemplateById(i, fullData));
+    inputData.frameList.forEach(function(f) {
+	var newFrameList = [];
+	f.frame.items.forEach(function(g) {
+	    var newFrame = [];
+	    g.forEach(function(i) {
+		newFrame.push(getTypedObjectTemplateById(i, fullData));
+	    });
+	    newFrameList.push(newFrame);
 	});
-	newItemList.push(newitemRow);
+	newItemList.push({ frameType: f.frameType,
+			   frame: newFrameList });
     });
     return newItemList;
 }
