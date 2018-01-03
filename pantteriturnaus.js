@@ -1377,6 +1377,65 @@ function getUserByHashedName(hash) {
     });
 }
 
+
+// database conversion and update
+
+function updateDatabaseVersionTo_1() {
+    var newTeams = [];
+    var nextId = 1;
+    datastorage.read("teams").teams.forEach(function(t) {
+	newTeams.push({ id: nextId++,
+			name: t.name,
+			players: t.players });
+    });
+    if(datastorage.write("teams", { nextId: nextId, teams: newTeams }) === false) {
+	servicelog("Updated teams database write failed");
+	process.exit(1);
+    } else {
+	servicelog("Updated teams database to v.1");
+    }
+    var newTournaments = [];
+    var nextId = 1;
+    datastorage.read("tournaments").tournaments.forEach(function(t) {
+	var newGames = [];
+	t.games.forEach(function(g) {
+	    var newScores = [];
+	    g.scores.forEach(function(s) {
+		newScores.push({ point: getTeamIdFromName(s.point),
+				 type: s.type,
+				 time: s.time,
+				 scorer: s.scorer,
+				 passer: s.passer });
+	    });
+	    newGames.push({ round: g.round,
+			    home: getTeamIdFromName(g.home),
+			    guest: getTeamIdFromName(g.guest),
+			    result: g.result,
+			    time: g.time,
+			    scores: newScores });
+	});
+	newTournaments.push({ id: nextId++,
+			      name: t.name,
+			      locked: t.locked,
+			      outputFile: t.outputFile,
+			      games: newGames });
+    });
+    if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
+	servicelog("Updated tournaments database write failed");
+	process.exit(1);
+    } else {
+	servicelog("Updated tournaments database to v.1");
+    }
+    mainConfig.version = DatabaseVersion;
+    if(datastorage.write("main", { main: mainConfig }) === false) {
+	servicelog("Updated main database write failed");
+	process.exit(1);
+    } else {
+	servicelog("Updated main database to v.1");
+    }
+}
+
+
 // datastorage.setLogger(servicelog);
 datastorage.initialize("main", { main: { version: DatabaseVersion,
 					 port: 8080,
@@ -1406,58 +1465,7 @@ if(mainConfig.version < DatabaseVersion) {
     servicelog("Updating database version to most recent supported by this program release.");
     if(mainConfig.version === 0) {
 	// update database version from 0 to 1
-	var newTeams = [];
-	var nextId = 1;
-	datastorage.read("teams").teams.forEach(function(t) {
-	    newTeams.push({ id: nextId++,
-			    name: t.name,
-			    players: t.players });
-	});
-	if(datastorage.write("teams", { nextId: nextId, teams: newTeams }) === false) {
-	    servicelog("Updated teams database write failed");
-	    process.exit(1);
-	} else {
-	    servicelog("Updated teams database");
-	}
-	var newTournaments = [];
-	var nextId = 1;
-	datastorage.read("tournaments").tournaments.forEach(function(t) {
-	    var newGames = [];
-	    t.games.forEach(function(g) {
-		var newScores = [];
-		g.scores.forEach(function(s) {
-		    newScores.push({ point: getTeamIdFromName(s.point),
-				     type: s.type,
-				     time: s.time,
-				     scorer: s.scorer,
-				     passer: s.passer });
-		});
-		newGames.push({ round: g.round,
-				home: getTeamIdFromName(g.home),
-				guest: getTeamIdFromName(g.guest),
-				result: g.result,
-				time: g.time,
-				scores: newScores });
-	    });
-	    newTournaments.push({ id: nextId++,
-				  name: t.name,
-				  locked: t.locked,
-				  outputFile: t.outputFile,
-				  games: newGames });
-	});
-	if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
-	    servicelog("Updated tournaments database write failed");
-	    process.exit(1);
-	} else {
-	    servicelog("Updated tournaments database");
-	}
-	mainConfig.version = DatabaseVersion;
-	if(datastorage.write("main", { main: mainConfig }) === false) {
-	    servicelog("Updated main database write failed");
-	    process.exit(1);
-	} else {
-	    servicelog("Updated main database");
-	}
+	updateDatabaseVersionTo_1();
     }
 }
 
