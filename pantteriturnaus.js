@@ -342,9 +342,9 @@ function processGetSingleTournamentForEdit(cookie, data) {
 			 [ createUiSelectionList("guest", createTeamList(), getTeamNameFromId(t.guest)) ] ]);
 	});
 
-	var itemList = { title: "Game",
+	var itemList = { title: tournament.name,
 			 frameId: 0,
-			 header: [ { text: "Home" }, { text: "Guest" }, { text: "time" } ],
+			 header: [ { text: "Time" }, { text: "Home" }, { text: "Guest" } ],
 			 items: items,
 			 newItem: [ [ createUiTextArea("time", "<time>", 20) ],
 				    [ createUiSelectionList("home", createTeamList(), "") ],
@@ -521,7 +521,7 @@ function processGetSingleTeamForEdit(cookie, data) {
 	    }
 	});
 
-	var itemList = { title: data.buttonData,
+	var itemList = { title: getTeamNameFromId(data.buttonData),
 			 frameId: 0,
 			 header: [ { text: "Name" }, { text: "Number" } ],
 			 items: items,
