@@ -450,12 +450,28 @@ function createTypedObject(id, item, inputData) {
 	    button.onclick = function() { sendToServerEncrypted(i.callbackMessage,
 								{ buttonId: i.itemId,
 								  buttonData: i.data,
-								  inputData: inputData });
+								  items: refreshInputDataItems(inputData, false) });
 					  return false;
 					};
 	    newItem.appendChild(button);
 	    newItemContainer.appendChild(newItem);
 	}
+
+	if(i.itemType === "input") {
+	    var newItem = document.createElement('input');
+	    newItem.itemType = "input";
+	    newItem.key = i.key;
+	    if(i.password === false) {
+		newItem.type = "text";
+		newItem.value = i.value;
+	    } else {
+		newItem.type = "password";
+	    }
+	    newItem.id = id++;
+	    i.itemId = newItem.id;
+	    newItemContainer.appendChild(newItem);
+	}
+
     });
 
     return { id: id, item: newItemContainer };
@@ -489,7 +505,8 @@ function getTypedObjectTemplateById(item, fullData) {
 			     key: i.key,
 			     value: uiItem.value,
 			     cols: i.cols,
-			     rows: i.rows } );
+			     rows: i.rows,
+			     password: i.password } );
 	}
 	if(i.itemType === "checkbox") {
 	    itemList.push( { itemType: "checkbox",
@@ -513,6 +530,12 @@ function getTypedObjectTemplateById(item, fullData) {
 			     data: i.data,
 			     callbackMessage: i.callbackMessage,
 			     active: i.active } );
+	}
+	if(i.itemType === "input") {
+	    itemList.push( { itemType: "input",
+			     key: i.key,
+			     value: uiItem.value,
+			     password: i.password } );
 	}
     });
 

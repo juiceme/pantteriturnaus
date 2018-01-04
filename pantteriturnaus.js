@@ -132,6 +132,8 @@ function handleIncomingMessage(cookie, decryptedMessage) {
 	    processGainAdminMode(cookie, decryptedMessage.content); }
 	if(decryptedMessage.type === "saveAdminData") {
 	    processSaveAdminData(cookie, decryptedMessage.content); }
+	if(decryptedMessage.type === "changeUserPassword") {
+	    processChangeUserPassword(cookie, decryptedMessage.content); }
 	if(decryptedMessage.type === "resetToMain") {
 	    processResetToMainState(cookie, decryptedMessage.content); }
 	if(decryptedMessage.type === "getOneMatchScoresForEdit") {
@@ -599,13 +601,15 @@ function processGainAdminMode(cookie, content) {
 			   createUiCheckBox("score-edit", userHasEditScoresPrivilige(u), "se"),
 			   createUiCheckBox("team-edit", userHasEditTeamsPrivilige(u), "te"),
 			   createUiCheckBox("tournament-edit", userHasEditTournamentsPrivilige(u), "to"),
-			   createUiCheckBox("system-admin", userHasSysAdminPrivilige(u), "a") ] ] )
+			   createUiCheckBox("system-admin", userHasSysAdminPrivilige(u), "a") ],
+		         [ createUiButton("Vaihda", "changeUserPassword", u.username),
+			   createUiInputField("password", "", true) ] ] )
 	});
 
 	var itemList = { title: "User Admin Data",
 			 frameId: 0,
 			 header: [ { text: "username" }, { text: "realname" }, { text: "email" },
-				   { text: "phone" }, { text: "V / S / Te / To / A" } ],
+				   { text: "phone" }, { text: "V / S / Te / To / A" }, { text: "Vaihda Salasana" } ],
 			 items: items,
 			 newItem: [ [ createUiTextArea("username", "<username>") ],
 				    [ createUiTextArea("realname", "<realname>", 25) ],
@@ -615,7 +619,8 @@ function processGainAdminMode(cookie, content) {
 				      createUiCheckBox("score-edit", false, "se"),
 				      createUiCheckBox("team-edit", false, "te"),
 				      createUiCheckBox("tournament-edit", false, "to"),
-				      createUiCheckBox("system-admin", false, "a") ] ] };
+				      createUiCheckBox("system-admin", false, "a") ],
+				    [ createUiTextNode("password", "") ] ] };
 
 	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
 
@@ -645,6 +650,10 @@ function processSaveAdminData(cookie, data) {
 	servicelog("user has insufficent priviliges to edit admin data");
     }
     sendTournamentMainData(cookie);
+}
+
+function processChangeUserPassword(cookie, data) {
+    servicelog("Client #" + cookie.count + " requests user passwor change: " + JSON.stringify(data));
 }
 
 function processResetToMainState(cookie, content) {
@@ -684,6 +693,10 @@ function createUiButton(text, callbackMessage, data, active) {
     return { itemType: "button", text: text, callbackMessage: callbackMessage, data: data, active: active };
 }
 
+function createUiInputField(key, value, password) {
+    if(password  === undefined) { password = false; }
+    return { itemType: "input", key: key, value: value, password: password };
+}
 
 /**********/
 
