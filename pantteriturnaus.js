@@ -655,7 +655,41 @@ function processSaveAdminData(cookie, data) {
 }
 
 function processChangeUserPassword(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests user passwor change: " + JSON.stringify(data));
+    servicelog("Client #" + cookie.count + " requests user password change.");
+    if(userHasSysAdminPrivilige(cookie.user)) {
+	var passwordChange = extractPasswordChangeFromInputData(data);
+	if(passwordChange === null) {
+	    sendTournamentMainData(cookie);
+	    return;
+	}
+
+	var newUsers = [];
+	datastorage.read("users").users.forEach(function(u) {
+	    if(u.username !== passwordChange.userName) {
+		newUsers.push(u);
+	    } else {
+		newUsers.push({ applicationData: u.applicationData,
+				username: u.username,
+				hash: u.hash,
+				realname: u.realname,
+				email: u.email,
+				phone: u.phone,
+				password: passwordChange.password });
+	    }
+	});
+	if(datastorage.write("users", { users: newUsers }) === false) {
+	    servicelog("User database write failed");
+	    setStatustoClient(cookie, "Password Change FAILED");
+	} else {
+	    servicelog("Updated password of user [" + JSON.stringify(passwordChange.userName) + "]");
+	    setStatustoClient(cookie, "Password Changed OK");
+	    processGainAdminMode(cookie);
+	    return;
+	}
+    } else {
+	servicelog("user has insufficent priviliges to change passwords");
+    }
+    sendTournamentMainData(cookie);
 }
 
 function processResetToMainState(cookie, content) {
@@ -1339,6 +1373,33 @@ function extractUserListFromInputData(data) {
 	});
     });
     return userList;
+}
+
+function extractPasswordChangeFromInputData(data) {
+    if(data.buttonData === undefined) {
+	servicelog("inputData does not contain buttonData");
+	return null;
+    }
+    if(data.items === undefined) {
+	servicelog("inputData does not contain items");
+	return null;
+    }
+    if(data.items[0] === undefined) {
+	servicelog("inputData.items is not an array");
+	return null;
+    }
+    if(data.items[0].frame === undefined) {
+	servicelog("inputData.items does not contain frame");
+	return null;
+    }
+
+    var passwordChange = data.items[0].frame.map(function(u) {
+	if(u[0][0].text === data.buttonData) {
+	    return { userName: u[0][0].text,
+		     password: sha1.hash(u[5][1].value + sha1.hash(u[0][0].text).slice(0,4)) };
+	}
+    }).filter(function(f){return f;})[0];
+    return passwordChange;
 }
 
 
