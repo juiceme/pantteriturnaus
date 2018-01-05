@@ -15,9 +15,11 @@ function servicelog(s) {
 }
 
 function setStatustoClient(cookie, status) {
-    var sendable = { type: "statusData",
-		     content: status };
-    cookie.connection.send(JSON.stringify(sendable));
+    if(cookie.aesKey === "") {
+	sendPlainTextToClient(cookie, { type: "statusData", content: status });
+    } else {
+	sendCipherTextToClient(cookie, { type: "statusData", content: status });
+    }
 }
 
 function sendPlainTextToClient(cookie, sendable) {

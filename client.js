@@ -17,6 +17,10 @@ mySocket.onmessage = function (event) {
 
     console.log("Received message: " + JSON.stringify(receivable));
 
+    if(receivable.type == "statusData") {
+        document.getElementById("myStatusField").value = receivable.content;
+    }
+
     if(receivable.type == "loginView") {
 	var div1 = document.createElement("div");
 	document.body.replaceChild(div1, document.getElementById("myDiv1"));
