@@ -94,7 +94,7 @@ wsServer.on('request', function(request) {
 		    var decryptedMessage = JSON.parse(Aes.Ctr.decrypt(content, cookie.user.password, 128));
 		    handleIncomingMessage(cookie, decryptedMessage);
 		} catch(err) {
-		    servicelog("problem parsing JSON from message: " + err);
+		    servicelog("Problem parsing JSON from message: " + err);
 		    return;
 		}
 	    }
@@ -246,7 +246,7 @@ function createUiInputField(key, value, password) {
 // Application specific part starts from here
 
 function handleIncomingMessage(cookie, decryptedMessage) {
-//    servicelog("decrypted message: " + JSON.stringify(decryptedMessage));
+//    servicelog("Decrypted message: " + JSON.stringify(decryptedMessage));
     if(decryptedMessage.type === "clientStarted") {
 	processClientStarted(cookie); }
     if(stateIs(cookie, "loggedIn")) {
@@ -443,7 +443,7 @@ function processGetTournamentDataForShow(cookie, data) {
 	sendCipherTextToClient(cookie, sendable);
 	servicelog("Sent tournament html view to client");
     } else {
-	servicelog("User has insufficent priviliges to view tournament");
+	servicelog("User " + cookie.user.username + " does not have priviliges to view tournament");
     }
 }
 
@@ -458,7 +458,7 @@ function processGetOneTournamentScoresForEdit(cookie, data) {
     if(userHasEditScoresPrivilige(cookie.user)) {
 	sendOneTournamentForScoresEdit(cookie, getTournamentDataById(tournamentId));
     } else {
-	servicelog("User has insufficent priviliges to edit tournament scores");
+	servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament scores");
     }
 }
 
@@ -503,7 +503,7 @@ function processGetTournamentsDataForEdit(cookie, data) {
 	sendCipherTextToClient(cookie, sendable);
 	servicelog("Sent NEW tournamentData to client #" + cookie.count);
     } else {
-	servicelog("user has insufficent priviliges to edit tournaments.");
+	servicelog("User " + cookie.user.username + " does not have priviliges to edit tournaments.");
 	sendTournamentMainData(cookie);
     }
 }
@@ -545,7 +545,7 @@ function processSaveAllTournamentsData(cookie, data) {
 	    servicelog("Updated tournaments database");
 	}
     } else {
-	servicelog("user has insufficent priviliges to edit tournament data");
+	servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament data");
     }
     sendTournamentMainData(cookie);
 }
@@ -589,7 +589,7 @@ function processGetSingleTournamentForEdit(cookie, data) {
 	sendCipherTextToClient(cookie, sendable);
 	servicelog("Sent NEW gameData to client #" + cookie.count);
     } else {
-	servicelog("user has insufficent priviliges to edit tournament data");
+	servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament data");
 	sendTournamentMainData(cookie);
     }
 }
@@ -624,7 +624,7 @@ function processSaveTournamentGameData(cookie, data) {
 	    servicelog("Updated tournaments database");
 	}
     } else {
-	servicelog("user has insufficent priviliges to edit tournament data");
+	servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament data");
     }
     sendTournamentMainData(cookie);
 }
@@ -684,7 +684,7 @@ function processGetTeamsDataForEdit(cookie, content) {
 	sendCipherTextToClient(cookie, sendable);
 	servicelog("Sent NEW teamsData to client #" + cookie.count);
     } else {
-	servicelog("user has insufficent priviliges to edit teams");
+	servicelog("User " + cookie.user.username + " does not have priviliges to edit teams");
 	sendTournamentMainData(cookie);
     }
 }
@@ -718,7 +718,7 @@ function processSaveAllTeamsData(cookie, data) {
 	    servicelog("Updated teams database");
 	}
     } else {
-	servicelog("user has insufficent priviliges to edit teams");
+	servicelog("User " + cookie.user.username + " does not have priviliges to edit teams");
     }
     sendTournamentMainData(cookie);
 }
@@ -761,7 +761,7 @@ function processGetSingleTeamForEdit(cookie, data) {
 	sendCipherTextToClient(cookie, sendable);
 	servicelog("Sent NEW teamData to client #" + cookie.count);
     } else {
-	servicelog("user has insufficent priviliges to edit teams");
+	servicelog("User " + cookie.user.username + " does not have priviliges to edit players");
 	sendTournamentMainData(cookie);
     }
 }
@@ -773,7 +773,7 @@ function processSaveSingleTeamData(cookie, data) {
 	    if(b.text === "OK") { updateSingleTeamFromClient(cookie, b.data, data); }
 	});
     } else {
-	servicelog("user has insufficent priviliges to edit teams");
+	servicelog("User " + cookie.user.username + " does not have priviliges to edit players");
     }
     sendTournamentMainData(cookie);
 }
@@ -859,7 +859,7 @@ function processGainAdminMode(cookie, content) {
 	servicelog("Sent NEW adminData to client #" + cookie.count);
 
     } else {
-	servicelog("user " + cookie.user.username + " does not have Sytem Administration priviliges!");
+	servicelog("User " + cookie.user.username + " does not have Sytem Administration priviliges!");
 	processClientStarted(cookie);
     }	
 }
@@ -869,7 +869,7 @@ function processSaveAdminData(cookie, data) {
     if(userHasSysAdminPrivilige(cookie.user)) {
 	updateAdminDataFromClient(cookie, data);
     } else {
-	servicelog("user has insufficent priviliges to edit admin data");
+	servicelog("User " + cookie.user.username + " does not have priviliges to edit admin data");
     }
     sendTournamentMainData(cookie);
 }
@@ -939,7 +939,7 @@ function processChangeUserPassword(cookie, data) {
 	    return;
 	}
     } else {
-	servicelog("user has insufficent priviliges to change passwords");
+	servicelog("User " + cookie.user.username + " does not have priviliges to change passwords");
     }
     sendTournamentMainData(cookie);
 }
@@ -994,7 +994,7 @@ function processGetOneMatchScoresForEdit(cookie, data) {
     if(userHasEditScoresPrivilige(cookie.user)) {
 	sendOneMatchForScoresEdit(cookie, getMatchDataById(tournamentId, tournamentRound));
     } else {
-	servicelog("user has insufficent priviliges to edit match scores");
+	servicelog("User " + cookie.user.username + " does not have priviliges to edit match scores");
     }
 }
 
@@ -1067,7 +1067,7 @@ function processSaveMatchScores(cookie, data) {
 	    if(b.text === "OK") { updateMatchScoresFromClient(cookie, b.data, data); }
 	});
     } else {
-	servicelog("user has insufficent priviliges to edit match scores");
+	servicelog("User " + cookie.user.username + " does not have priviliges to edit match scores");
     }
     sendTournamentMainData(cookie);
 }
