@@ -394,11 +394,12 @@ function sendTournamentMainData(cookie) {
     var tournaments = datastorage.read("tournaments").tournaments.map(function(t) {
 	return { id: t.id, name: t.name, locked: t.locked };
     });
-
+   
     var items = [];
     tournaments.forEach(function(t) {
+	if(!userHasEditScoresPrivilige(cookie.user)) { t.locked = true; }
 	items.push( [ [ createUiTextNode("name", t.name) ],
-		      [ createUiButton("Tulokset", "getTournamentDataForShow", t.id) ],
+		      [ createUiButton("Tulokset", "getTournamentDataForShow", t.id, userHasViewPrivilige(cookie.user)) ],
 		      [ createUiButton("Muokkaa", "getOneTournamentScoresForEdit", t.id, !t.locked) ] ] );
     });
 
