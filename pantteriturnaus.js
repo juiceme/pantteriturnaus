@@ -509,7 +509,7 @@ function processGetTournamentsDataForEdit(cookie, data) {
 }
 
 function processSaveAllTournamentsData(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests tournament data saving: " + JSON.stringify(data));
+    servicelog("Client #" + cookie.count + " requests tournament data saving.");
     if(userHasEditTournamentsPrivilige(cookie.user)) {
 	var newTournaments = [];
 	var oldTournaments = datastorage.read("tournaments").tournaments;
@@ -554,7 +554,7 @@ function processSaveAllTournamentsData(cookie, data) {
 // Single tournament edit UI
 
 function processGetSingleTournamentForEdit(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests single tournament data for edit: " + JSON.stringify(data));
+    servicelog("Client #" + cookie.count + " requests single tournament data for edit.");
     if(userHasEditTournamentsPrivilige(cookie.user)) {
 	var tournament = datastorage.read("tournaments").tournaments.map(function(t) {
 	    if(t.id === data.buttonData) { return t; }
@@ -595,7 +595,7 @@ function processGetSingleTournamentForEdit(cookie, data) {
 }
 
 function processSaveTournamentGameData(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests saving single tournament game data: " + JSON.stringify(data));
+    servicelog("Client #" + cookie.count + " requests saving single tournament game data.");
     if(userHasEditTournamentsPrivilige(cookie.user)) {
 	var newTournaments = [];
 	var oldTournaments = datastorage.read("tournaments");
@@ -690,7 +690,7 @@ function processGetTeamsDataForEdit(cookie, content) {
 }
 
 function processSaveAllTeamsData(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests teams data saving: " + JSON.stringify(data));
+    servicelog("Client #" + cookie.count + " requests teams data saving.");
     if(userHasEditTeamsPrivilige(cookie.user)) {
 	var newTeams = [];
 	var oldTeams = datastorage.read("teams").teams;
@@ -727,7 +727,7 @@ function processSaveAllTeamsData(cookie, data) {
 // Team member edit UI panel
 
 function processGetSingleTeamForEdit(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests team data for editing: " + JSON.stringify(data.buttonData));
+    servicelog("Client #" + cookie.count + " requests team data for editing.");
     if(userHasEditPlayersPrivilige(cookie.user)) {
 	var sendable;
 	var topButtonList =  createTopButtonList(cookie, false);
@@ -767,7 +767,7 @@ function processGetSingleTeamForEdit(cookie, data) {
 }
 
 function processSaveSingleTeamData(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests single team saving: " + JSON.stringify(data));
+    servicelog("Client #" + cookie.count + " requests single team saving.");
     if(userHasEditPlayersPrivilige(cookie.user)) {
 	data.buttonList.forEach(function(b) {
 	    if(b.text === "OK") { updateSingleTeamFromClient(cookie, b.data, data); }
@@ -865,7 +865,7 @@ function processGainAdminMode(cookie, content) {
 }
 
 function processSaveAdminData(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests admin data saving: " + JSON.stringify(data));
+    servicelog("Client #" + cookie.count + " requests admin data saving.");
     if(userHasSysAdminPrivilige(cookie.user)) {
 	updateAdminDataFromClient(cookie, data);
     } else {
@@ -902,7 +902,7 @@ function updateAdminDataFromClient(cookie, userData) {
     if(datastorage.write("users", { users: newUsers }) === false) {
 	servicelog("User database write failed");
     } else {
-	servicelog("Updated User database: " + JSON.stringify(newUsers));
+	servicelog("Updated User database.");
     }
 }
 
@@ -990,7 +990,7 @@ function processGetOneMatchScoresForEdit(cookie, data) {
 	servicelog("Cannot parse either tournament name or round: " + err);
 	return;
     }
-    servicelog("Client #" + cookie.count + " requests match scores edit: " + tournamentId + " / " + tournamentRound);
+    servicelog("Client #" + cookie.count + " requests match scores edit.");
     if(userHasEditScoresPrivilige(cookie.user)) {
 	sendOneMatchForScoresEdit(cookie, getMatchDataById(tournamentId, tournamentRound));
     } else {
@@ -1061,7 +1061,7 @@ function createPlayer(tuple) {
 }
 
 function processSaveMatchScores(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests match scores saving: " + JSON.stringify(data));
+    servicelog("Client #" + cookie.count + " requests match scores saving.");
     if(userHasEditScoresPrivilige(cookie.user)) {
 	data.buttonList.forEach(function(b) {
 	    if(b.text === "OK") { updateMatchScoresFromClient(cookie, b.data, data); }
@@ -1110,7 +1110,7 @@ function updateMatchScoresFromClient(cookie, match, matchData) {
 	servicelog("Tournament database write failed");
     } else {
 	createTournamentHtmlPages(getTournamentDataById(match.id));
-	servicelog("Updated tournament database: " + JSON.stringify(newTournaments));
+	servicelog("Updated tournament database.");
     }
 }
 
