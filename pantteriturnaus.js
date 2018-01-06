@@ -201,6 +201,7 @@ function processLoginResponse(cookie, content) {
 function processResetToMainState(cookie, content) {
     // this shows up the first UI panel when uses login succeeds or other panels send "OK" / "Cancel" 
     servicelog("User session reset to main state");
+    cookie.user = getUserByUserName(cookie.user.username)[0];
     sendTournamentMainData(cookie);
 }
 
@@ -351,6 +352,12 @@ function userHasEditTeamsPrivilige(user) {
     return true;
 }
 
+function userHasEditPlayersPrivilige(user) {
+    if(user.applicationData.priviliges.length === 0) { return false; }
+    if(user.applicationData.priviliges.indexOf("player-edit") < 0) { return false; }
+    return true;
+}
+
 function userHasEditScoresPrivilige(user) {
     if(user.applicationData.priviliges.length === 0) { return false; }
     if(user.applicationData.priviliges.indexOf("score-edit") < 0) { return false; }
@@ -368,7 +375,7 @@ function userHasViewPrivilige(user) {
 
 function createTopButtonList(cookie, adminRequest) {
     var topButtonList = [ { id: 101, text: "Kirjaudu Ulos", callbackMessage: "clientStarted" } ];
-    if(userHasEditTeamsPrivilige(cookie.user)) {
+    if(userHasEditTeamsPrivilige(cookie.user) || userHasEditPlayersPrivilige(cookie.user)) {
 	topButtonList.push( { id: 102, text: "Muokkaa Joukkueita", callbackMessage: "getTeamsDataForEdit" } );
     }
     if(userHasEditTournamentsPrivilige(cookie.user)) {
@@ -627,33 +634,52 @@ function processSaveTournamentGameData(cookie, data) {
 
 function processGetTeamsDataForEdit(cookie, content) {
     servicelog("Client #" + cookie.count + " requests teams edit");
-    if(userHasEditTeamsPrivilige(cookie.user)) {
+    if(userHasEditTeamsPrivilige(cookie.user) || userHasEditPlayersPrivilige(cookie.user)) {
 	var sendable;
 	var topButtonList =  createTopButtonList(cookie, false);
 	var items = [];
+	var frameList;
+	var buttonList;
 	datastorage.read("teams").teams.forEach(function(t) {
+	    var nameNode = createUiTextNode("name", t.name, 25);
+	    var buttonNode = buttonNode = createUiButton("Muokkaa", "getSingleTeamForEdit", t.id, false);
+	    if(userHasEditPlayersPrivilige(cookie.user)) {
+		buttonNode = createUiButton("Muokkaa", "getSingleTeamForEdit", t.id, true);
+	    }
+	    if(userHasEditTeamsPrivilige(cookie.user))	{
+		nameNode = createUiTextArea("name", t.name, 25);
+	    }
 	    items.push([ [ createUiTextNode("id", t.id, 10) ],
-			 [ createUiTextArea("name", t.name, 25) ],
-			 [ createUiButton("Muokkaa", "getSingleTeamForEdit", t.id) ] ]);
+			 [ nameNode ],
+			 [ buttonNode ] ]);
 	});
 
-	var itemList = { title: "Teams",
-			 frameId: 0,
-			 header: [ { text: "Id" }, { text: "Name" }, { text: "" } ],
-			 items: items,
-			 newItem: [ [ createUiTextNode("id", "", 10) ],
-				    [ createUiTextArea("name", "<name>", 25) ],
-				    [ createUiTextNode("", "", 25) ] ] };
-
-	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
+	if(userHasEditTeamsPrivilige(cookie.user)) {
+	    var itemList = { title: "Teams",
+			     frameId: 0,
+			     header: [ { text: "Id" }, { text: "Name" }, { text: "" } ],
+			     items: items,
+			     newItem: [ [ createUiTextNode("id", "", 10) ],
+					[ createUiTextArea("name", "<name>", 25) ],
+					[ createUiTextNode("", "", 25) ] ] };
+	    frameList = [ { frameType: "editListFrame", frame: itemList } ];
+	    buttonList = [ { id: 501, text: "OK", callbackMessage: "saveAllTeamsData" },
+			   { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ];
+	} else {
+	    var itemList = { title: "Teams",
+			     frameId: 0,
+			     header: [ { text: "Id" }, { text: "Name" }, { text: "" } ],
+			     items: items };
+	    frameList = [ { frameType: "fixedListFrame", frame: itemList } ];
+	    buttonList = [ { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ];
+	}
 
 	sendable = { type: "createUiPage",
 		     content: { user: cookie.user.username,
 				priviliges: cookie.user.applicationData.priviliges,
 				topButtonList: topButtonList,
 				frameList: frameList,
-				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveAllTeamsData" },
-					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
+				buttonList: buttonList } };
 
 	sendCipherTextToClient(cookie, sendable);
 	servicelog("Sent NEW teamsData to client #" + cookie.count);
@@ -702,7 +728,7 @@ function processSaveAllTeamsData(cookie, data) {
 
 function processGetSingleTeamForEdit(cookie, data) {
     servicelog("Client #" + cookie.count + " requests team data for editing: " + JSON.stringify(data.buttonData));
-    if(userHasEditTeamsPrivilige(cookie.user)) {
+    if(userHasEditPlayersPrivilige(cookie.user)) {
 	var sendable;
 	var topButtonList =  createTopButtonList(cookie, false);
 	var items = [];
@@ -742,7 +768,7 @@ function processGetSingleTeamForEdit(cookie, data) {
 
 function processSaveSingleTeamData(cookie, data) {
     servicelog("Client #" + cookie.count + " requests single team saving: " + JSON.stringify(data));
-    if(userHasEditTeamsPrivilige(cookie.user)) {
+    if(userHasEditPlayersPrivilige(cookie.user)) {
 	data.buttonList.forEach(function(b) {
 	    if(b.text === "OK") { updateSingleTeamFromClient(cookie, b.data, data); }
 	});
@@ -795,6 +821,7 @@ function processGainAdminMode(cookie, content) {
 			 [ createUiCheckBox("view", userHasViewPrivilige(u), "v"),
 			   createUiCheckBox("score-edit", userHasEditScoresPrivilige(u), "se"),
 			   createUiCheckBox("team-edit", userHasEditTeamsPrivilige(u), "te"),
+			   createUiCheckBox("player-edit", userHasEditPlayersPrivilige(u), "pe"),
 			   createUiCheckBox("tournament-edit", userHasEditTournamentsPrivilige(u), "to"),
 			   createUiCheckBox("system-admin", userHasSysAdminPrivilige(u), "a") ],
 		         [ createUiButton("Vaihda", "changeUserPassword", u.username),
@@ -804,7 +831,7 @@ function processGainAdminMode(cookie, content) {
 	var itemList = { title: "User Admin Data",
 			 frameId: 0,
 			 header: [ { text: "username" }, { text: "realname" }, { text: "email" },
-				   { text: "phone" }, { text: "V / S / Te / To / A" }, { text: "Vaihda Salasana" } ],
+				   { text: "phone" }, { text: "V / S / Te / Pe / To / A" }, { text: "Vaihda Salasana" } ],
 			 items: items,
 			 newItem: [ [ createUiTextArea("username", "<username>") ],
 				    [ createUiTextArea("realname", "<realname>", 25) ],
@@ -813,6 +840,7 @@ function processGainAdminMode(cookie, content) {
 				    [ createUiCheckBox("view", false, "v"),
 				      createUiCheckBox("score-edit", false, "se"),
 				      createUiCheckBox("team-edit", false, "te"),
+				      createUiCheckBox("player-edit", false, "pe"),
 				      createUiCheckBox("tournament-edit", false, "to"),
 				      createUiCheckBox("system-admin", false, "a") ],
 				    [ createUiTextNode("password", "") ] ] };
@@ -840,7 +868,6 @@ function processSaveAdminData(cookie, data) {
     servicelog("Client #" + cookie.count + " requests admin data saving: " + JSON.stringify(data));
     if(userHasSysAdminPrivilige(cookie.user)) {
 	updateAdminDataFromClient(cookie, data);
-	cookie.user = getUserByUserName(cookie.user.username)[0];
     } else {
 	servicelog("user has insufficent priviliges to edit admin data");
     }
@@ -1429,6 +1456,8 @@ function extractUserListFromInputData(data) {
 			    if(item.checked) { user.applicationData.priviliges.push("score-edit"); } }
 			if(item.key === "team-edit") {
 			    if(item.checked) { user.applicationData.priviliges.push("team-edit"); } }
+			if(item.key === "player-edit") {
+			    if(item.checked) { user.applicationData.priviliges.push("player-edit"); } }
 			if(item.key === "tournament-edit") {
 			    if(item.checked) { user.applicationData.priviliges.push("tournament-edit"); } }
 			if(item.key === "system-admin") {
