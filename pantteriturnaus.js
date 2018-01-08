@@ -8,7 +8,7 @@ var sha1 = require('./crypto/sha1.js');
 var datastorage = require('./datastorage/datastorage.js');
 
 var globalSalt = sha1.hash(JSON.stringify(new Date().getTime()));
-var DatabaseVersion = 1;
+var databaseVersion = 2;
 
 function servicelog(s) {
     console.log((new Date()) + " --- " + s);
@@ -1004,32 +1004,57 @@ function processGetOneMatchScoresForEdit(cookie, data) {
 function sendOneMatchForScoresEdit(cookie, match) {
     var sendable;
     var topButtonList =  createTopButtonList(cookie, false);
-    var items = [];
-    
+    var scoreItems = [];
+    var penaltyItems = [];
+
     match.scores.forEach(function(s) {
-	items.push([ [ createUiSelectionList("piste", [ getTeamNameFromId(match.home),
-							getTeamNameFromId(match.guest) ],
-					     getTeamNameFromId(s.point)) ],
-		     [ createUiSelectionList("tyyppi", [ "maali", "rankkari", "omari" ], s.type) ],
-		     [ createUiTextArea("aika", s.time) ],
-		     [ createUiSelectionList("tekijä", createPlayerList(match), createPlayer(s.scorer)) ],
-		     [ createUiSelectionList("syöttäjä", createPlayerList(match), createPlayer(s.passer)) ] ])
-	});
+	scoreItems.push([ [ createUiSelectionList("piste", [ getTeamNameFromId(match.home),
+							     getTeamNameFromId(match.guest) ],
+						  getTeamNameFromId(s.point)) ],
+			  [ createUiSelectionList("tyyppi", [ "maali", "rankkari", "omari" ], s.type) ],
+			  [ createUiTextArea("aika", s.time) ],
+			  [ createUiSelectionList("tekijä", createPlayerList(match), createPlayer(s.scorer)) ],
+			  [ createUiSelectionList("syöttäjä", createPlayerList(match), createPlayer(s.passer)) ] ]);
+    });
 
-    var itemList = { title: getTeamNameFromId(match.home) + " vs. " + getTeamNameFromId(match.guest),
-		     frameId: 0,
-		     header: [ { text: "piste" }, { text: "tyyppi" }, { text: "aika" },
-			       { text: "tekijä" }, { text: "syöttäjä" } ],
-		     items: items,
-		     newItem: [ [ createUiSelectionList("piste", [ getTeamNameFromId(match.home),
-								   getTeamNameFromId(match.guest) ], "" ) ],
-				[ createUiSelectionList("tyyppi", [ "maali", "rankkari", "omari" ], "") ],
-				[ createUiTextArea("aika", "") ],
-				[ createUiSelectionList("tekijä", createPlayerList(match), "") ],
-				[ createUiSelectionList("syöttäjä", createPlayerList(match), "") ]
-			      ] };
+    match.penalties.forEach(function(p) {
+	penaltyItems.push([ [ createUiSelectionList("rangaistus", [ getTeamNameFromId(match.home),
+								    getTeamNameFromId(match.guest) ],
+						    getTeamNameFromId(p.penalty)) ],
+			    [ createUiTextArea("aika", p.time) ],
+			    [ createUiSelectionList("koodi", createPenaltyCodes(), p.code) ],
+			    [ createUiSelectionList("pituus", [ "2min", "5min" ], p.length) ],
+			    [ createUiSelectionList("pelaaja", createPlayerList(match), createPlayer(p.player)) ] ]);
+    });
 
-    var frameList = [ { frameType: "editListFrame", frame: itemList } ];
+    var scoresItemList = { title: "Pisteet: " + getTeamNameFromId(match.home) + " - " + getTeamNameFromId(match.guest),
+			   frameId: 0,
+			   header: [ { text: "piste" }, { text: "tyyppi" }, { text: "aika" },
+				     { text: "tekijä" }, { text: "syöttäjä" } ],
+			   items: scoreItems,
+			   newItem: [ [ createUiSelectionList("piste", [ getTeamNameFromId(match.home),
+									 getTeamNameFromId(match.guest) ], "" ) ],
+				      [ createUiSelectionList("tyyppi", [ "maali", "rankkari", "omari" ], "") ],
+				      [ createUiTextArea("aika", "") ],
+				      [ createUiSelectionList("tekijä", createPlayerList(match), "") ],
+				      [ createUiSelectionList("syöttäjä", createPlayerList(match), "") ]
+				    ] };
+
+    var penaltiesItemList = { title: "Rangaistukset: " + getTeamNameFromId(match.home) + " - " + getTeamNameFromId(match.guest),
+			      frameId: 1,
+			      header: [ { text: "rangaistus" }, { text: "aika" }, { text: "koodi" }, { text: "pituus" },
+					{ text: "pelaaja" } ],
+			      items: penaltyItems,
+			      newItem: [ [ createUiSelectionList("rangaistus", [ getTeamNameFromId(match.home),
+										 getTeamNameFromId(match.guest) ], "" ) ],
+					 [ createUiTextArea("aika", "") ],
+					 [ createUiSelectionList("koodi", createPenaltyCodes(), "") ],
+					 [ createUiSelectionList("pituus", [ "2min", "5min" ], "") ],
+					 [ createUiSelectionList("pelaaja", createPlayerList(match), "") ] ]
+			    };
+
+    var frameList = [ { frameType: "editListFrame", frame: scoresItemList },
+		      { frameType: "editListFrame", frame: penaltiesItemList } ];
 
     sendable = { type: "createUiPage",
 		 content: { user: cookie.user.username,
@@ -1058,6 +1083,10 @@ function createPlayerList(match) {
 
 function createPlayer(tuple) {
     return tuple.name + " / " + tuple.number;
+}
+
+function createPenaltyCodes() {
+    return [ "hii", "haa", "hoo" ];
 }
 
 function processSaveMatchScores(cookie, data) {
@@ -1547,7 +1576,7 @@ function updateDatabaseVersionTo_1() {
     } else {
 	servicelog("Updated tournaments database to v.1");
     }
-    mainConfig.version = DatabaseVersion;
+    mainConfig.version = databaseVersion;
     if(datastorage.write("main", { main: mainConfig }) === false) {
 	servicelog("Updated main database write failed");
 	process.exit(1);
@@ -1556,9 +1585,44 @@ function updateDatabaseVersionTo_1() {
     }
 }
 
+function updateDatabaseVersionTo_2() {
+    var newTournaments = [];
+    var nextId = 1;
+    datastorage.read("tournaments").tournaments.forEach(function(t) {
+	var newGames = [];
+	t.games.forEach(function(g) {
+	    newGames.push({ round: g.round,
+			    home: g.home,
+			    guest: g.guest,
+			    result: g.result,
+			    time: g.time,
+			    scores: g.scores,
+			    penalties: [] });
+	});
+	newTournaments.push({ id: nextId++,
+			      name: t.name,
+			      locked: t.locked,
+			      outputFile: t.outputFile,
+			      games: newGames });
+    });
+    if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
+	servicelog("Updated tournaments database write failed");
+	process.exit(1);
+    } else {
+	servicelog("Updated tournaments database to v.2");
+    }
+    mainConfig.version = databaseVersion;
+    if(datastorage.write("main", { main: mainConfig }) === false) {
+	servicelog("Updated main database write failed");
+	process.exit(1);
+    } else {
+	servicelog("Updated main database to v.2");
+    }
+}
+
 
 // datastorage.setLogger(servicelog);
-datastorage.initialize("main", { main: { version: DatabaseVersion,
+datastorage.initialize("main", { main: { version: databaseVersion,
 					 port: 8080,
 					 siteFullUrl: "http://url.to.pantterilasku/" } });
 datastorage.initialize("users", { users: [ { username: "test",
@@ -1578,15 +1642,19 @@ datastorage.initialize("teams", { nextId: 1,
 var mainConfig = datastorage.read("main").main;
 
 if(mainConfig.version === undefined) { mainConfig.version = 0; }
-if(mainConfig.version > DatabaseVersion) {
+if(mainConfig.version > databaseVersion) {
     servicelog("Database version is too high for this program release, please update program.");
     process.exit(1);
 }
-if(mainConfig.version < DatabaseVersion) {
+if(mainConfig.version < databaseVersion) {
     servicelog("Updating database version to most recent supported by this program release.");
     if(mainConfig.version === 0) {
 	// update database version from 0 to 1
 	updateDatabaseVersionTo_1();
+    }
+    if(mainConfig.version === 1) {
+	// update database version from 1 to 2
+	updateDatabaseVersionTo_2();
     }
 }
 
