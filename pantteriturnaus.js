@@ -1021,7 +1021,7 @@ function sendOneMatchForScoresEdit(cookie, match) {
 	penaltyItems.push([ [ createUiSelectionList("rangaistus", [ getTeamNameFromId(match.home),
 								    getTeamNameFromId(match.guest) ],
 						    getTeamNameFromId(p.penalty)) ],
-			    [ createUiTextArea("aika", p.time) ],
+			    [ createUiTextArea("rangaistusaika", p.time) ],
 			    [ createUiSelectionList("koodi", createPenaltyCodes(), p.code) ],
 			    [ createUiSelectionList("pituus", [ "2min", "5min" ], p.length) ],
 			    [ createUiSelectionList("pelaaja", createPlayerList(match), createPlayer(p.player)) ] ]);
@@ -1037,8 +1037,7 @@ function sendOneMatchForScoresEdit(cookie, match) {
 				      [ createUiSelectionList("tyyppi", [ "maali", "rankkari", "omari" ], "") ],
 				      [ createUiTextArea("aika", "") ],
 				      [ createUiSelectionList("tekijä", createPlayerList(match), "") ],
-				      [ createUiSelectionList("syöttäjä", createPlayerList(match), "") ]
-				    ] };
+				      [ createUiSelectionList("syöttäjä", createPlayerList(match), "") ] ] };
 
     var penaltiesItemList = { title: "Rangaistukset: " + getTeamNameFromId(match.home) + " - " + getTeamNameFromId(match.guest),
 			      frameId: 1,
@@ -1050,9 +1049,9 @@ function sendOneMatchForScoresEdit(cookie, match) {
 					 [ createUiTextArea("aika", "") ],
 					 [ createUiSelectionList("koodi", createPenaltyCodes(), "") ],
 					 [ createUiSelectionList("pituus", [ "2min", "5min" ], "") ],
-					 [ createUiSelectionList("pelaaja", createPlayerList(match), "") ] ]
-			    };
+					 [ createUiSelectionList("pelaaja", createPlayerList(match), "") ] ] };
 
+//    var frameList = [ { frameType: "editListFrame", frame: scoresItemList } ];
     var frameList = [ { frameType: "editListFrame", frame: scoresItemList },
 		      { frameType: "editListFrame", frame: penaltiesItemList } ];
 
