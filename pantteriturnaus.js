@@ -1023,7 +1023,7 @@ function sendOneMatchForScoresEdit(cookie, match) {
 						    getTeamNameFromId(p.penalty)) ],
 			    [ createUiTextArea("rangaistusaika", p.time) ],
 			    [ createUiSelectionList("koodi", createPenaltyCodes(), p.code) ],
-			    [ createUiSelectionList("pituus", [ "2min", "5min" ], p.length) ],
+			    [ createUiSelectionList("pituus", createPenaltyTimes(), p.length) ],
 			    [ createUiSelectionList("pelaaja", createPlayerList(match), createPlayer(p.player)) ] ]);
     });
 
@@ -1048,7 +1048,7 @@ function sendOneMatchForScoresEdit(cookie, match) {
 										 getTeamNameFromId(match.guest) ], "" ) ],
 					 [ createUiTextArea("aika", "") ],
 					 [ createUiSelectionList("koodi", createPenaltyCodes(), "") ],
-					 [ createUiSelectionList("pituus", [ "2min", "5min" ], "") ],
+					 [ createUiSelectionList("pituus", createPenaltyTimes(), "") ],
 					 [ createUiSelectionList("pelaaja", createPlayerList(match), "") ] ] };
 
 //    var frameList = [ { frameType: "editListFrame", frame: scoresItemList } ];
@@ -1084,15 +1084,64 @@ function createPlayer(tuple) {
     return tuple.name + " / " + tuple.number;
 }
 
+function createPenaltyTimes() {
+    return [ "2min",
+	     "5min",
+	     "10min",
+	     "2+10min",
+	     "PR1",
+	     "PR2",
+	     "PR3" ];
+}
+
 function createPenaltyCodes() {
-    return [ "hii", "haa", "hoo" ];
+    return [ "52 EPÄURHEILIJAMAINEN KÄYTÖS",
+	     "71 ESTÄMINEN",
+	     "93 HUITOMINEN",
+	     "54 HÄIRITSEVÄ VALMENTAMINEN",
+	     "50 KIELTÄYTYMINEN LÄHTEMÄSTÄ RANGAISTUSPENKILTÄ",
+	     "72 KIINNIPITÄMINEN",
+	     "82 KORKEA JALKA",
+	     "81 KORKEA MAILA",
+	     "92 KOUKKAAMINEN",
+	     "86 KÄDELLÄ TAI KÄSIVARRELLA PELAAMINEN",
+	     "35 LIIAN KÄYRÄ MAILAN LAPA",
+	     "42 LIIAN MONTA PELAAJAA KAUKALOSSA",
+	     "49 LÄHTEMINEN RANGAISTUSPENKILTÄ ETUAJASSA",
+	     "70 MAALINPAIKAN KORJAAMATTA JÄTTÄMINEN",
+	     "85 MAASTA PELAAMINEN",
+	     "31 MAILAN HAKEMINEN MUUALTA KUIN AITIOSTA",
+	     "94 MAILAAN LYÖMINEN TAI POTKAISEMINEN",
+	     "96 MAILAN NOSTAMINEN",
+	     "95 MAILAN PAINAMINEN TAI SITOMINEN",
+	     "97 MAILAN TAI VARUSTEEN HEITTÄMINEN",
+	     "64 MAILAN TAI VARUSTEEN RIKKOMINEN",
+	     "36 PELAAMINEN ILMAN MAILAA",
+	     "39 PELAAMINEN LAITTOMALLA MAILALLA",
+	     "38 PELAAMINEN VIALLISELLA MAILALLA",
+	     "53 PELIN SABOTOIMINEN",
+	     "62 PELIN VIIVYTTÄMINEN",
+	     "47 PÖYTÄKIRJAAN MERKITSEMÄTÖN PELAAJA",
+	     "51 PROTESTOIMINEN",
+	     "87 PÄÄLLÄ PELAAMINEN",
+	     "40 RIKE MAALINTEKOTILANTEESSA",
+	     "37 PUDONNEEN MAILAN JÄTTÄMINEN PELIKENTÄLLE",
+	     "65 SYSTEMAATTISESTI TOISTUVA RIKKOMINEN (JOUKKUE)",
+	     "32 SÄÄNTÖJEN VASTAINEN VARUSTE TAI VAATETUS",
+	     "83 TAKLAAMINEN, KAATAMINEN TAI KAMPPAAMINEN",
+	     "33 TARPEETON MAILAN TARKISTUSPYYNTÖ",
+	     "73 TYÖNTÄMINEN",
+	     "67 VAARALLINEN PELI",
+	     "91 VÄKIVALTAISUUS",
+	     "61 VÄÄRÄ ETÄISYYS",
+	     "41 VÄÄRÄ VAIHTO" ];
 }
 
 function processSaveMatchScores(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests match scores saving.");
+    servicelog("Client #" + cookie.count + " requests match scores saving: " + JSON.stringify(data));
     if(userHasEditScoresPrivilige(cookie.user)) {
 	data.buttonList.forEach(function(b) {
-	    if(b.text === "OK") { updateMatchScoresFromClient(cookie, b.data, data); }
+	    if(b.text === "OK") { updateMatchStatisticsFromClient(cookie, b.data, data); }
 	});
     } else {
 	servicelog("User " + cookie.user.username + " does not have priviliges to edit match scores");
@@ -1100,7 +1149,7 @@ function processSaveMatchScores(cookie, data) {
     sendTournamentMainData(cookie);
 }
 
-function updateMatchScoresFromClient(cookie, match, matchData) {
+function updateMatchStatisticsFromClient(cookie, match, matchData) {
     var oldTournaments = datastorage.read("tournaments");
     var newTournaments = [];
     oldTournaments.tournaments.forEach(function(t) {
@@ -1116,8 +1165,8 @@ function updateMatchScoresFromClient(cookie, match, matchData) {
 		if(g.round !== match.round) {
 		    newGames.push(g);
 		} else {
-		    var newScores = extractMatchScoresFromInputData(matchData);
-		    if(newScores === null) {
+		    var newStatistics = extractMatchStatisticsFromInputData(matchData);
+		    if(newStatistics === null) {
 			sendTournamentMainData(cookie);
 			return;
 		    }
@@ -1125,8 +1174,9 @@ function updateMatchScoresFromClient(cookie, match, matchData) {
 		    newGames.push({ round: match.round,
 				    home: g.home,
 				    guest: g.guest,
-				    result: calculateResultFromScores(newScores, { home: g.home, guest:g.guest }),
-				    scores: newScores,
+				    result: calculateResultFromScores(newStatistics.scores, { home: g.home, guest:g.guest }),
+				    scores: newStatistics.scores,
+				    penalties: newStatistics.penalties,
 				    time: g.time });
 		}
 	    });
@@ -1432,25 +1482,39 @@ function extractSingleTeamDataFromInputData(data) {
     return players;
 }
 
-function extractMatchScoresFromInputData(data) {
+function extractMatchStatisticsFromInputData(data) {
     if(inputItemsFailVerification(data)) {
 	return null;
     }
     var scores = [];
+    var penalties = [];
     data.items.forEach(function(i) {
-	i.frame.forEach(function(m) {
-	    var scorer = { name: m[3][0].selected.slice(0, m[3][0].selected.indexOf(' / ')),
-			   number: m[3][0].selected.slice(m[3][0].selected.indexOf(' / ') + 3, m[3][0].selected.length) };
-	    var passer = { name: m[4][0].selected.slice(0, m[4][0].selected.indexOf(' / ')),
-			   number: m[4][0].selected.slice(m[4][0].selected.indexOf(' / ') + 3, m[4][0].selected.length) };
-	    scores.push({ point: getTeamIdFromName(m[0][0].selected),
-			  type: m[1][0].selected,
-			  time: m[2][0].value,
-			  scorer: scorer,
-			  passer: passer });
-	});
+	if(i.frameId === 0) {
+	    i.frame.forEach(function(m) {
+		var scorer = { name: m[3][0].selected.slice(0, m[3][0].selected.indexOf(' / ')),
+			       number: m[3][0].selected.slice(m[3][0].selected.indexOf(' / ') + 3, m[3][0].selected.length) };
+		var passer = { name: m[4][0].selected.slice(0, m[4][0].selected.indexOf(' / ')),
+			       number: m[4][0].selected.slice(m[4][0].selected.indexOf(' / ') + 3, m[4][0].selected.length) };
+		scores.push({ point: getTeamIdFromName(m[0][0].selected),
+			      type: m[1][0].selected,
+			      time: m[2][0].value,
+			      scorer: scorer,
+			      passer: passer });
+	    });
+	}
+	if(i.frameId === 1) {
+	    i.frame.forEach(function(m) {
+		var person = { name: m[4][0].selected.slice(0, m[4][0].selected.indexOf(' / ')),
+			       number: m[4][0].selected.slice(m[4][0].selected.indexOf(' / ') + 3, m[4][0].selected.length) };
+		penalties.push({ penalty: getTeamIdFromName(m[0][0].selected),
+				 time: m[1][0].value,
+				 code: m[2][0].selected,
+				 length: m[3][0].selected,
+				 player: person });
+	    });
+	}
     });
-    return scores;
+    return { scores: scores, penalties: penalties };
 }
 
 function extractUserListFromInputData(data) {
