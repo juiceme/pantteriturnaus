@@ -351,15 +351,16 @@ function refreshInputDataItems(inputData, fullData) {
     var newItemList = [];
     inputData.frameList.forEach(function(f) {
 	var newFrameList = [];
-	f.frame.items.forEach(function(g) {
-	    var newFrame = [];
-	    g.forEach(function(i) {
+        f.frame.items.forEach(function(g) {
+            var newFrame = [];
+            g.forEach(function(i) {
 		newFrame.push(getTypedObjectTemplateById(i, fullData));
-	    });
-	    newFrameList.push(newFrame);
-	});
+            });
+            newFrameList.push(newFrame);
+        });
 	newItemList.push({ frameType: f.frameType,
-			   frame: newFrameList });
+			   frameId: f.frame.frameId,
+                           frame: newFrameList });
     });
     return newItemList;
 }
