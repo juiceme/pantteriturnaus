@@ -84,14 +84,18 @@ function createUiPage(inputData) {
     inputData.frameList.forEach(function(f) {
 	fieldset.appendChild(document.createElement('br'));
 	if(f.frameType === "fixedListFrame") {
-	    var newFixedListFrame = createFixedListFrame(id, inputData, f.frame);
-	    id = newFixedListFrame.id;
-	    fieldset.appendChild(newFixedListFrame.listFrame);
+	    fieldset.appendChild(document.createElement('br'));
+	    var newFixedItemTable = createFixedItemList(id, inputData, frame);
+	    id = newFixedItemTable.id;
+	    fieldset.appendChild(newFixedItemTable.table);
+	    fieldset.appendChild(document.createElement('br'));
 	}
 	if(f.frameType === "editListFrame") {
-	    var newEditListFrame = createEditListFrame(id, inputData, f.frame);
-	    id = newEditListFrame.id
-	    fieldset.appendChild(newEditListFrame.listFrame);
+	    fieldset.appendChild(document.createElement('br'));
+	    var newEditableItemTable = createEditableItemList(id, inputData, frame);
+	    id = newEditableItemTable.id;
+	    fieldset.appendChild(newEditableItemTable.table);
+	    fieldset.appendChild(document.createElement('br'));
 	}
     });
     fieldset.appendChild(document.createElement('br'));
@@ -103,28 +107,6 @@ function createUiPage(inputData) {
     fieldset.id= "myDiv2";
     return fieldset;
 
-}
-
-function createEditListFrame(id, inputData, frame) {
-    var fieldset = document.createElement('fieldsetset');
-
-    fieldset.appendChild(document.createElement('br'));
-    var newEditableItemList = createEditableItemList(id, inputData, frame);
-    id = newEditableItemList.id;
-    fieldset.appendChild(newEditableItemList.itemList);
-    fieldset.appendChild(document.createElement('br'));
-    return { id: id, listFrame: fieldset };
-}
-
-function createFixedListFrame(id, inputData, frame) {
-    var fieldset = document.createElement('fieldsetset');
-
-    fieldset.appendChild(document.createElement('br'));
-    var newFixedItemList = createFixedItemList(id, inputData, frame);
-    id = newFixedItemList.id;
-    fieldset.appendChild(newFixedItemList.itemList);
-    fieldset.appendChild(document.createElement('br'));
-    return { id: id, listFrame: fieldset };
 }
 
 function createFixedItemList(id, inputData, frame) {
@@ -152,11 +134,11 @@ function createFixedItemList(id, inputData, frame) {
     });
     table.appendChild(tableHeader);
     table.appendChild(tableBody);
-    return { id: id, itemList: table };
+    return { id: id, table: table };
 }
 
 function createEditableItemList(id, inputData, frame) {
-  var table = document.createElement('table');
+    var table = document.createElement('table');
     var tableHeader = document.createElement('thead');
     var tableBody = document.createElement('tbody');
 
@@ -184,7 +166,7 @@ function createEditableItemList(id, inputData, frame) {
     tableBody.appendChild(newTableItem.tableRow);
     table.appendChild(tableHeader);
     table.appendChild(tableBody);
-    return { id: id, itemList: table };
+    return { id: id, table: table };
 }
 
 function createTopButtons(inputData) {
@@ -300,7 +282,6 @@ function createNewItemToList(inputData, button) {
 			     header: f.frame.header,
 			     items: newItemList[button.frameId].frame,
 			     newItem: f.frame.newItem };
-
 	    newFrameList.push({ frameType: f.frameType,
 				frame: newFrame });
 	} else {
@@ -670,4 +651,3 @@ function createLoginView() {
 
     return table;
 }
-
