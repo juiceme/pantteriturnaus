@@ -85,14 +85,14 @@ function createUiPage(inputData) {
 	fieldset.appendChild(document.createElement('br'));
 	if(f.frameType === "fixedListFrame") {
 	    fieldset.appendChild(document.createElement('br'));
-	    var newFixedItemTable = createFixedItemList(id, inputData, frame);
+	    var newFixedItemTable = createFixedItemList(id, inputData, f.frame);
 	    id = newFixedItemTable.id;
 	    fieldset.appendChild(newFixedItemTable.table);
 	    fieldset.appendChild(document.createElement('br'));
 	}
 	if(f.frameType === "editListFrame") {
 	    fieldset.appendChild(document.createElement('br'));
-	    var newEditableItemTable = createEditableItemList(id, inputData, frame);
+	    var newEditableItemTable = createEditableItemList(id, inputData, f.frame);
 	    id = newEditableItemTable.id;
 	    fieldset.appendChild(newEditableItemTable.table);
 	    fieldset.appendChild(document.createElement('br'));
