@@ -15,7 +15,7 @@ mySocket.onopen = function (event) {
 mySocket.onmessage = function (event) {
     var receivable = JSON.parse(event.data);
 
-    console.log("Received message: " + JSON.stringify(receivable));
+//    console.log("Received message: " + JSON.stringify(receivable));
 
     if(receivable.type == "statusData") {
         document.getElementById("myStatusField").value = receivable.content;
@@ -34,7 +34,7 @@ mySocket.onmessage = function (event) {
 	// fails and client is restarted
 	try {
 	    var content = JSON.parse(Aes.Ctr.decrypt(receivable.content, sessionPassword, 128));
-	    handleIncomingMessage(content);
+	    defragmentIncomingMessage(content);
 	} catch(err) {
 	    var sendable = {type:"clientStarted", content:"none"};
 	    mySocket.send(JSON.stringify(sendable));
@@ -42,34 +42,56 @@ mySocket.onmessage = function (event) {
     }
 }
 
-function handleIncomingMessage(decryptedMessage) {
+var incomingMessageBuffer = "";
 
-    console.log("Decrypted incoming message: " + JSON.stringify(decryptedMessage));
+function defragmentIncomingMessage(decryptedMessage) {
 
-    if(decryptedMessage.type == "statusData") {
-        document.getElementById("myStatusField").value = decryptedMessage.content;
+//    console.log("Decrypted incoming message: " + JSON.stringify(decryptedMessage));
+
+    if(decryptedMessage.type === "nonFragmented") {
+	handleIncomingMessage(JSON.parse(decryptedMessage.data));
+    }
+    if(decryptedMessage.type === "fragment") {
+	if(decryptedMessage.id === 0) {
+	    incomingMessageBuffer = decryptedMessage.data;
+	} else {
+	    incomingMessageBuffer = incomingMessageBuffer + decryptedMessage.data;
+	}
+    }
+    if(decryptedMessage.type === "lastFragment") {
+	incomingMessageBuffer = incomingMessageBuffer + decryptedMessage.data;
+	handleIncomingMessage(JSON.parse(incomingMessageBuffer));
+    }
+}
+
+function handleIncomingMessage(defragmentedMessage) {
+
+//    console.log("Defragmented incoming message: " + JSON.stringify(defragmentedMessage));
+
+    if(defragmentedMessage.type == "statusData") {
+        document.getElementById("myStatusField").value = defragmentedMessage.content;
     }
 
-    if(decryptedMessage.type == "loginChallenge") {
-	var cipheredResponce = Aes.Ctr.encrypt(decryptedMessage.content, sessionPassword, 128);
+    if(defragmentedMessage.type == "loginChallenge") {
+	var cipheredResponce = Aes.Ctr.encrypt(defragmentedMessage.content, sessionPassword, 128);
 	sendToServer("loginResponse", cipheredResponce);
     }
 
-    if(decryptedMessage.type == "unpriviligedLogin") {
-	document.body.replaceChild(createTopButtons(decryptedMessage.content), document.getElementById("myDiv1"));
+    if(defragmentedMessage.type == "unpriviligedLogin") {
+	document.body.replaceChild(createTopButtons(defragmentedMessage.content), document.getElementById("myDiv1"));
 	document.body.replaceChild(document.createElement("div"), document.getElementById("myDiv2"));
     }
 
-    if(decryptedMessage.type == "showTournament") {
+    if(defragmentedMessage.type == "showTournament") {
 	var wnd = window.document.open("about:blank", "", "scrollbars=yes");
-	wnd.document.write(decryptedMessage.content);
+	wnd.document.write(defragmentedMessage.content);
 	wnd.document.close();
     }
 
-    if(decryptedMessage.type == "createUiPage") {
-	document.body.replaceChild(createTopButtons(decryptedMessage.content),
+    if(defragmentedMessage.type == "createUiPage") {
+	document.body.replaceChild(createTopButtons(defragmentedMessage.content),
 				   document.getElementById("myDiv1"));
-	document.body.replaceChild(createUiPage(decryptedMessage.content),
+	document.body.replaceChild(createUiPage(defragmentedMessage.content),
 				   document.getElementById("myDiv2"));
     }
 }
@@ -557,12 +579,32 @@ function sendToServer(type, content) {
     mySocket.send(JSON.stringify(sendable));
 }
 
+function sendFragment(type, id, data) {
+    var fragment = JSON.stringify({ type: type, id: id, length: data.length, data: data });
+    var cipherSendable = JSON.stringify({ type: "payload",
+					  content: Aes.Ctr.encrypt(fragment, sessionPassword, 128) });
+    mySocket.send(cipherSendable);
+}
+
+var fragmentSize = 10000;
+
 function sendToServerEncrypted(type, content) {
-    var sendable = { type: "payload",
-		     content: Aes.Ctr.encrypt(JSON.stringify({ type: type, content: content }),
-					      sessionPassword, 128) };
-    mySocket.send(JSON.stringify(sendable));
-    console.log("Sent " + JSON.stringify(sendable).length + " encrypted bytes to server");
+    var sendableString = JSON.stringify({ type: type, content: content });
+    var count = 0;
+    var originalLength = sendableString.length;
+    if(sendableString.length <= fragmentSize) {
+	sendFragment("nonFragmented", count++, sendableString);
+    } else {
+	while(sendableString.length > fragmentSize) {
+	    sendableStringFragment = sendableString.slice(0, fragmentSize);
+	    sendableString = sendableString.slice(fragmentSize, sendableString.length);
+	    sendFragment("fragment", count++, sendableStringFragment);
+	}
+	if(sendableString.length > 0) {
+	    sendFragment("lastFragment", count++, sendableString);
+	}
+    }
+//    console.log("Sent " + originalLength + " bytes in " + count + " fragments to server");
 }
 
 

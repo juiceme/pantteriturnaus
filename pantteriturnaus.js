@@ -9,6 +9,7 @@ var datastorage = require('./datastorage/datastorage.js');
 
 var globalSalt = sha1.hash(JSON.stringify(new Date().getTime()));
 var databaseVersion = 2;
+var fragmentSize = 10000;
 
 function servicelog(s) {
     console.log((new Date()) + " --- " + s);
@@ -26,11 +27,30 @@ function sendPlainTextToClient(cookie, sendable) {
     cookie.connection.send(JSON.stringify(sendable));
 }
 
+function sendFragment(cookie, type, id, data) {
+    var fragment = JSON.stringify({ type: type, id: id, length: data.length, data: data });
+    var cipherSendable = JSON.stringify({ type: "payload",
+					  content: Aes.Ctr.encrypt(fragment, cookie.aesKey, 128) });
+    cookie.connection.send(cipherSendable);
+}
+
 function sendCipherTextToClient(cookie, sendable) {
-    var cipherSendable = { type: "payload",
-			   content: Aes.Ctr.encrypt(JSON.stringify(sendable),
-						    cookie.aesKey, 128) };
-    cookie.connection.send(JSON.stringify(cipherSendable));
+    var sendableString = JSON.stringify(sendable);
+    var count = 0;
+    var originalLength = sendableString.length;
+    if(sendableString.length <= fragmentSize) {
+	sendFragment(cookie, "nonFragmented", count++, sendableString);
+    } else {
+	while(sendableString.length > fragmentSize) {
+	    sendableStringFragment = sendableString.slice(0, fragmentSize);
+	    sendableString = sendableString.slice(fragmentSize, sendableString.length);
+	    sendFragment(cookie, "fragment", count++, sendableStringFragment);
+	}
+	if(sendableString.length > 0) {
+	    sendFragment(cookie, "lastFragment", count++, sendableString);
+	}
+    }
+//    servicelog("Sent " + originalLength + " bytes in " + count + " fragments to server");
 }
 
 function getClientVariables() {
@@ -92,7 +112,7 @@ wsServer.on('request', function(request) {
 	    if(type === "payload") {
 		try {
 		    var decryptedMessage = JSON.parse(Aes.Ctr.decrypt(content, cookie.user.password, 128));
-		    handleIncomingMessage(cookie, decryptedMessage);
+		    defragmentIncomingMessage(cookie, decryptedMessage);
 		} catch(err) {
 		    servicelog("Problem parsing JSON from message: " + err);
 		    return;
@@ -106,6 +126,23 @@ wsServer.on('request', function(request) {
         cookie = {};
     });
 });
+
+function defragmentIncomingMessage(cookie, decryptedMessage) {
+    if(decryptedMessage.type === "nonFragmented") {
+	handleIncomingMessage(cookie, JSON.parse(decryptedMessage.data));
+    }
+    if(decryptedMessage.type === "fragment") {
+	if(decryptedMessage.id === 0) {
+	    cookie.incomingMessageBuffer = decryptedMessage.data;
+	} else {
+	    cookie.incomingMessageBuffer = cookie.incomingMessageBuffer + decryptedMessage.data;
+	}
+    }
+    if(decryptedMessage.type === "lastFragment") {
+	cookie.incomingMessageBuffer = cookie.incomingMessageBuffer + decryptedMessage.data;
+	handleIncomingMessage(cookie, JSON.parse(cookie.incomingMessageBuffer));
+    }
+}
 
 function stateIs(cookie, state) {
     return (cookie.state === state);
@@ -142,6 +179,7 @@ function processClientStarted(cookie) {
     cookie.aesKey = "";
     cookie.user = {};
     cookie.challenge = "";
+    cookie.incomingMessageBuffer = "";
     var sendable = { type: "loginView" }
     sendPlainTextToClient(cookie, sendable);
     setStatustoClient(cookie, "Login");
@@ -1138,7 +1176,7 @@ function createPenaltyCodes() {
 }
 
 function processSaveMatchScores(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests match scores saving: " + JSON.stringify(data));
+    servicelog("Client #" + cookie.count + " requests match scores saving.");
     if(userHasEditScoresPrivilige(cookie.user)) {
 	data.buttonList.forEach(function(b) {
 	    if(b.text === "OK") { updateMatchStatisticsFromClient(cookie, b.data, data); }
