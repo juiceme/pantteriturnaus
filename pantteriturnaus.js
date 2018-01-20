@@ -1692,7 +1692,7 @@ function updateDatabaseVersionTo_1() {
     } else {
 	servicelog("Updated tournaments database to v.1");
     }
-    mainConfig.version = databaseVersion;
+    mainConfig.version = 1;
     if(datastorage.write("main", { main: mainConfig }) === false) {
 	servicelog("Updated main database write failed");
 	process.exit(1);
@@ -1727,7 +1727,7 @@ function updateDatabaseVersionTo_2() {
     } else {
 	servicelog("Updated tournaments database to v.2");
     }
-    mainConfig.version = databaseVersion;
+    mainConfig.version = 2;
     if(datastorage.write("main", { main: mainConfig }) === false) {
 	servicelog("Updated main database write failed");
 	process.exit(1);
@@ -1783,7 +1783,7 @@ function updateDatabaseVersionTo_3() {
     } else {
 	servicelog("Updated tournaments database to v.3");
     }
-    mainConfig.version = databaseVersion;
+    mainConfig.version = 3;
     if(datastorage.write("main", { main: mainConfig }) === false) {
 	servicelog("Updated main database write failed");
 	process.exit(1);
