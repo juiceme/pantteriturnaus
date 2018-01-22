@@ -1,293 +1,17 @@
-var websocket = require("websocket");
-var http = require("http");
+var framework = require("./framework");
 var fs = require("fs");
-var path = require("path");
-var Aes = require('./crypto/aes.js');
-Aes.Ctr = require('./crypto/aes-ctr.js');
-var sha1 = require('./crypto/sha1.js');
 var datastorage = require('./datastorage/datastorage.js');
 
-var globalSalt = sha1.hash(JSON.stringify(new Date().getTime()));
 var databaseVersion = 3;
-var fragmentSize = 10000;
-
-function servicelog(s) {
-    console.log((new Date()) + " --- " + s);
-}
-
-function setStatustoClient(cookie, status) {
-    if(cookie.aesKey === "") {
-	sendPlainTextToClient(cookie, { type: "statusData", content: status });
-    } else {
-	sendCipherTextToClient(cookie, { type: "statusData", content: status });
-    }
-}
-
-function sendPlainTextToClient(cookie, sendable) {
-    cookie.connection.send(JSON.stringify(sendable));
-}
-
-function sendFragment(cookie, type, id, data) {
-    var fragment = JSON.stringify({ type: type, id: id, length: data.length, data: data });
-    var cipherSendable = JSON.stringify({ type: "payload",
-					  content: Aes.Ctr.encrypt(fragment, cookie.aesKey, 128) });
-    cookie.connection.send(cipherSendable);
-}
-
-function sendCipherTextToClient(cookie, sendable) {
-    var sendableString = JSON.stringify(sendable);
-    var count = 0;
-    var originalLength = sendableString.length;
-    if(sendableString.length <= fragmentSize) {
-	sendFragment(cookie, "nonFragmented", count++, sendableString);
-    } else {
-	while(sendableString.length > fragmentSize) {
-	    sendableStringFragment = sendableString.slice(0, fragmentSize);
-	    sendableString = sendableString.slice(fragmentSize, sendableString.length);
-	    sendFragment(cookie, "fragment", count++, sendableStringFragment);
-	}
-	if(sendableString.length > 0) {
-	    sendFragment(cookie, "lastFragment", count++, sendableString);
-	}
-    }
-//    servicelog("Sent " + originalLength + " bytes in " + count + " fragments to server");
-}
-
-function getClientVariables() {
-    return "var WEBSOCK_PORT = " + mainConfig.port + ";\n";
-}
-
-var webServer = http.createServer(function(request,response){
-    var clienthead = fs.readFileSync("./clienthead", "utf8");
-    var variables = getClientVariables();
-    var clientbody = fs.readFileSync("./client.js", "utf8");
-    var aesjs = fs.readFileSync("./crypto/aes.js", "utf8");
-    var aesctrjs = fs.readFileSync("./crypto/aes-ctr.js", "utf8");
-    var sha1js = fs.readFileSync("./crypto/sha1.js", "utf8");
-    var sendable = clienthead + variables + clientbody + aesjs + aesctrjs + sha1js + "</script></body></html>";
-    response.writeHeader(200, { "Content-Type": "text/html",
-                                "X-Frame-Options": "deny",
-                                "X-XSS-Protection": "1; mode=block",
-                                "X-Content-Type-Options": "nosniff" });
-    response.write(sendable);
-    response.end();
-    servicelog("Respond with client to: " + JSON.stringify(request.headers));
-});
-
-wsServer = new websocket.server({
-    httpServer: webServer,
-    autoAcceptConnections: false
-});
-
-var connectionCount = 0;
-
-wsServer.on('request', function(request) {
-    servicelog("Connection from origin " + request.origin);
-    var connection = request.accept(null, request.origin);
-    var cookie = { count:connectionCount++, connection:connection, state:"new" };
-    var sendable;
-    var defaultUserRights = { priviliges: [ "none" ] }
-    servicelog("Client #" + cookie.count  + " accepted");
-
-    connection.on('message', function(message) {
-        if (message.type === 'utf8') {
-	    try {
-		var receivable = JSON.parse(message.utf8Data);
-	    } catch(err) {
-		servicelog("Received illegal message: " + err);
-		return;
-	    }
-	    if(!receivable.type || !receivable.content) {
-		servicelog("Received broken message: " + JSON.stringify(receivable));
-		return;
-	    }
-
-//	    servicelog("Incoming message: " + JSON.stringify(receivable));
-	    var type = receivable.type;
-	    var content = receivable.content;
-
-            if(type === "clientStarted") { processClientStarted(cookie); }
-	    if(type === "userLogin") { processUserLogin(cookie, content); }
-	    if(type === "loginResponse") { processLoginResponse(cookie, content); }
-	    if(type === "payload") {
-		try {
-		    var decryptedMessage = JSON.parse(Aes.Ctr.decrypt(content, cookie.user.password, 128));
-		    defragmentIncomingMessage(cookie, decryptedMessage);
-		} catch(err) {
-		    servicelog("Problem parsing JSON from message: " + err);
-		    return;
-		}
-	    }
-	}
-    });
-
-    connection.on('close', function(connection) {
-	servicelog("Client #" + cookie.count  + " disconnected");
-        cookie = {};
-    });
-});
-
-function defragmentIncomingMessage(cookie, decryptedMessage) {
-    if(decryptedMessage.type === "nonFragmented") {
-	handleIncomingMessage(cookie, JSON.parse(decryptedMessage.data));
-    }
-    if(decryptedMessage.type === "fragment") {
-	if(decryptedMessage.id === 0) {
-	    cookie.incomingMessageBuffer = decryptedMessage.data;
-	} else {
-	    cookie.incomingMessageBuffer = cookie.incomingMessageBuffer + decryptedMessage.data;
-	}
-    }
-    if(decryptedMessage.type === "lastFragment") {
-	cookie.incomingMessageBuffer = cookie.incomingMessageBuffer + decryptedMessage.data;
-	handleIncomingMessage(cookie, JSON.parse(cookie.incomingMessageBuffer));
-    }
-}
-
-function stateIs(cookie, state) {
-    return (cookie.state === state);
-}
-
-function setState(cookie, state) {
-    cookie.state = state;
-}
-
-function getUserByUserName(username) {
-    return datastorage.read("users").users.filter(function(u) {
-	return u.username === username;
-    });
-}
-
-function getUserByHashedName(hash) {
-    return datastorage.read("users").users.filter(function(u) {
-	return u.hash === hash;
-    });
-}
-
-function getNewChallenge() {
-    return ("challenge_" + sha1.hash(globalSalt + new Date().getTime().toString()) + "1");
-}
-
-function processClientStarted(cookie) {
-    if(cookie["user"] !== undefined) {
-	if(cookie.user["username"] !== undefined) {
-	    servicelog("User " + cookie.user.username + " logged out");
-	}
-    }
-    servicelog("Sending initial login view to client #" + cookie.count);
-    setState(cookie, "clientStarted");
-    cookie.aesKey = "";
-    cookie.user = {};
-    cookie.challenge = "";
-    cookie.incomingMessageBuffer = "";
-    var sendable = { type: "loginView" }
-    sendPlainTextToClient(cookie, sendable);
-    setStatustoClient(cookie, "Login");
-}
-
-function processUserLogin(cookie, content) {
-    var sendable;
-    if(!content.username) {
-	servicelog("Illegal user login message");
-	processClientStarted(cookie);
-	return;
-    } else {
-	var user = getUserByHashedName(content.username);
-	if(user.length === 0) {
-	    servicelog("Unknown user login attempt");
-	    processClientStarted(cookie);
-	    return;
-	} else {
-	    cookie.user = user[0];
-	    cookie.aesKey = user[0].password;
-	    servicelog("User " + user[0].username + " logging in");
-	    var plainChallenge = getNewChallenge();
-	    servicelog("plainChallenge: " + plainChallenge);
-	    cookie.challenge = plainChallenge;
-	    sendable = { type: "loginChallenge",
-			 content: plainChallenge };
-	    sendCipherTextToClient(cookie, sendable);
-	}
-    }
-}
-
-function processLoginResponse(cookie, content) {
-    var sendable;
-    var plainResponse = Aes.Ctr.decrypt(content, cookie.user.password, 128);
-    if(cookie.challenge === plainResponse) {
-	servicelog("User login OK");
-	setState(cookie, "loggedIn");
-	setStatustoClient(cookie, "Login OK");
-	if(getUserPriviliges(cookie.user).length === 0) {
-	    // for unpriviliged login, only send logout button and nothing more
-	    sendable = { type: "unpriviligedLogin",
-			 content: { topButtonList: [ { id: 100,
-						       text: "Kirjaudu Ulos",
-						       callbackMessage: "clientStarted" } ] } };
-
-	    sendCipherTextToClient(cookie, sendable);
-	    servicelog("Sent unpriviligedLogin info to client #" + cookie.count);
-	} else {
-	    processResetToMainState(cookie);
-	}
-    } else {
-	servicelog("User login failed on client #" + cookie.count);
-	processClientStarted(cookie);
-    }
-}
-
-function processResetToMainState(cookie, content) {
-    // this shows up the first UI panel when uses login succeeds or other panels send "OK" / "Cancel" 
-    servicelog("User session reset to main state");
-    cookie.user = getUserByUserName(cookie.user.username)[0];
-    sendTournamentMainData(cookie);
-}
-
-
-// UI helper functions
-
-function createUiTextNode(key, text) {
-    return { itemType: "textnode", key: key, text: text };
-}
-
-function createUiTextArea(key, value, cols, rows) {
-    if(cols === undefined) { cols = 10; }
-    if(rows === undefined) { rows = 1; }
-    return { itemType: "textarea", key: key, value: value, cols: cols, rows: rows };
-}
-
-function createUiCheckBox(key, checked, title, active) {
-    if(title === undefined) { title = ""; }
-    if(active === undefined) { active = true; }
-    return { itemType: "checkbox", key: key, checked: checked, title: title, active: active };
-}
-
-function createUiSelectionList(key, list, selected, active) {
-    var listItems = list.map(function(i) {
-	return { text: i, item: i }
-    }).filter(function(f) { return f; });
-    if(active === undefined) { active = true; }
-    return { itemType: "selection", key: key, list: listItems, selected: selected, active: active };
-}
-
-function createUiButton(text, callbackMessage, data, active) {
-    if(active === undefined) { active = true; }
-    return { itemType: "button", text: text, callbackMessage: callbackMessage, data: data, active: active };
-}
-
-function createUiInputField(key, value, password) {
-    if(password  === undefined) { password = false; }
-    return { itemType: "input", key: key, value: value, password: password };
-}
 
 
 // Application specific part starts from here
 
 function handleIncomingMessage(cookie, decryptedMessage) {
-//    servicelog("Decrypted message: " + JSON.stringify(decryptedMessage));
+//    framework.servicelog("Decrypted message: " + JSON.stringify(decryptedMessage));
     if(decryptedMessage.type === "clientStarted") {
-	processClientStarted(cookie); }
-    if(stateIs(cookie, "loggedIn")) {
+	framework.processClientStarted(cookie); }
+    if(framework.stateIs(cookie, "loggedIn")) {
 	if(decryptedMessage.type === "getTournamentDataForShow") {
 	    processGetTournamentDataForShow(cookie, decryptedMessage.content); }
 	if(decryptedMessage.type === "getOneTournamentScoresForEdit") {
@@ -309,7 +33,7 @@ function handleIncomingMessage(cookie, decryptedMessage) {
 	if(decryptedMessage.type === "changeUserPassword") {
 	    processChangeUserPassword(cookie, decryptedMessage.content); }
 	if(decryptedMessage.type === "resetToMain") {
-	    processResetToMainState(cookie, decryptedMessage.content); }
+	    framework.processResetToMainState(cookie, decryptedMessage.content); }
 	if(decryptedMessage.type === "getOneMatchScoresForEdit") {
 	    processGetOneMatchScoresForEdit(cookie, decryptedMessage.content); }
 	if(decryptedMessage.type === "saveMatchScores") {
@@ -443,9 +167,9 @@ function sendTournamentMainData(cookie) {
     var items = [];
     tournaments.forEach(function(t) {
 	if(!userHasEditScoresPrivilige(cookie.user)) { t.locked = true; }
-	items.push( [ [ createUiTextNode("name", t.name) ],
-		      [ createUiButton("Tulokset", "getTournamentDataForShow", t.id, userHasViewPrivilige(cookie.user)) ],
-		      [ createUiButton("Muokkaa", "getOneTournamentScoresForEdit", t.id, !t.locked) ] ] );
+	items.push( [ [ framework.createUiTextNode("name", t.name) ],
+		      [ framework.createUiButton("Tulokset", "getTournamentDataForShow", t.id, userHasViewPrivilige(cookie.user)) ],
+		      [ framework.createUiButton("Muokkaa", "getOneTournamentScoresForEdit", t.id, !t.locked) ] ] );
     });
 
     var itemList = { title: "Tournament",
@@ -461,8 +185,8 @@ function sendTournamentMainData(cookie) {
 			    topButtonList: topButtonList,
 			    frameList: frameList } };
 
-    sendCipherTextToClient(cookie, sendable);
-    servicelog("Sent NEW tournamentMainData to client #" + cookie.count);
+    framework.sendCipherTextToClient(cookie, sendable);
+    framework.servicelog("Sent NEW tournamentMainData to client #" + cookie.count);
 }
 
 function processGetTournamentDataForShow(cookie, data) {
@@ -470,18 +194,18 @@ function processGetTournamentDataForShow(cookie, data) {
     try {
 	var tournamentId = data.buttonData;
     } catch(err) {
-	servicelog("Cannot parse tournament id: " + err);
+	framework.servicelog("Cannot parse tournament id: " + err);
 	return;
     }
-    servicelog("Client #" + cookie.count + " requests tournament show: " + tournamentId);
+    framework.servicelog("Client #" + cookie.count + " requests tournament show: " + tournamentId);
     if(userHasViewPrivilige(cookie.user)) {	
 	var tournmentWebPage = new Buffer(createPreviewHtmlPage(getTournamentDataById(tournamentId)));
 	sendable = { type: "showTournament",
 		     content: tournmentWebPage.toString("ascii") };
-	sendCipherTextToClient(cookie, sendable);
-	servicelog("Sent tournament html view to client");
+	framework.sendCipherTextToClient(cookie, sendable);
+	framework.servicelog("Sent tournament html view to client");
     } else {
-	servicelog("User " + cookie.user.username + " does not have priviliges to view tournament");
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to view tournament");
     }
 }
 
@@ -489,14 +213,14 @@ function processGetOneTournamentScoresForEdit(cookie, data) {
     try {
 	var tournamentId = data.buttonData;
     } catch(err) {
-	servicelog("Cannot parse tournament id: " + err);
+	framework.servicelog("Cannot parse tournament id: " + err);
 	return;
     }
-    servicelog("Client #" + cookie.count + " requests tournament scores edit: " + tournamentId);
+    framework.servicelog("Client #" + cookie.count + " requests tournament scores edit: " + tournamentId);
     if(userHasEditScoresPrivilige(cookie.user)) {
 	sendOneTournamentForScoresEdit(cookie, getTournamentDataById(tournamentId));
     } else {
-	servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament scores");
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament scores");
     }
 }
 
@@ -504,17 +228,17 @@ function processGetOneTournamentScoresForEdit(cookie, data) {
 // All tournaments main edit UI panel
 
 function processGetTournamentsDataForEdit(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests tournament data for edit.");
+    framework.servicelog("Client #" + cookie.count + " requests tournament data for edit.");
     if(userHasEditTournamentsPrivilige(cookie.user)) {
 	var sendable;
 	var topButtonList =  createTopButtonList(cookie, false);
 	var items = [];
 	datastorage.read("tournaments").tournaments.forEach(function(t) {
-	    items.push([ [ createUiTextNode("id", t.id, 10) ],
-			 [ createUiTextArea("name", t.name, 30) ],
-			 [ createUiTextArea("outputfile", t.outputFile, 40) ],
-			 [ createUiCheckBox("locked", t.locked, "locked") ], 
-			 [ createUiButton("Muokkaa", "getSingleTournamentForEdit", t.id) ] ]);
+	    items.push([ [ framework.createUiTextNode("id", t.id, 10) ],
+			 [ framework.createUiTextArea("name", t.name, 30) ],
+			 [ framework.createUiTextArea("outputfile", t.outputFile, 40) ],
+			 [ framework.createUiCheckBox("locked", t.locked, "locked") ], 
+			 [ framework.createUiButton("Muokkaa", "getSingleTournamentForEdit", t.id) ] ]);
 	});
 
 	var itemList = { title: "Tournaments",
@@ -522,11 +246,11 @@ function processGetTournamentsDataForEdit(cookie, data) {
 			 header: [ { text: "Id" }, { text: "Name" }, { text: "Outputfile" },
 				   { text: "Locked" },  { text: "Edit" }],
 			 items: items,
-			 newItem: [ [ createUiTextNode("id", "", 10) ],
-				    [ createUiTextArea("name", "<name>", 30) ],
-				    [ createUiTextArea("outputfile", "<outputfile>", 40) ],
-				    [ createUiCheckBox("locked", false, "locked") ],
-				    [ createUiTextNode("", "", 25) ] ] };
+			 newItem: [ [ framework.createUiTextNode("id", "", 10) ],
+				    [ framework.createUiTextArea("name", "<name>", 30) ],
+				    [ framework.createUiTextArea("outputfile", "<outputfile>", 40) ],
+				    [ framework.createUiCheckBox("locked", false, "locked") ],
+				    [ framework.createUiTextNode("", "", 25) ] ] };
 
 	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
 
@@ -538,16 +262,16 @@ function processGetTournamentsDataForEdit(cookie, data) {
 				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveAllTournamentsData" },
 					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
 
-	sendCipherTextToClient(cookie, sendable);
-	servicelog("Sent NEW tournamentData to client #" + cookie.count);
+	framework.sendCipherTextToClient(cookie, sendable);
+	framework.servicelog("Sent NEW tournamentData to client #" + cookie.count);
     } else {
-	servicelog("User " + cookie.user.username + " does not have priviliges to edit tournaments.");
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit tournaments.");
 	sendTournamentMainData(cookie);
     }
 }
 
 function processSaveAllTournamentsData(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests tournament data saving.");
+    framework.servicelog("Client #" + cookie.count + " requests tournament data saving.");
     if(userHasEditTournamentsPrivilige(cookie.user)) {
 	var newTournaments = [];
 	var oldTournaments = datastorage.read("tournaments").tournaments;
@@ -578,12 +302,12 @@ function processSaveAllTournamentsData(cookie, data) {
 	    }
 	});
 	if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
-	    servicelog("Tournaments database write failed");
+	    framework.servicelog("Tournaments database write failed");
 	} else {
-	    servicelog("Updated tournaments database");
+	    framework.servicelog("Updated tournaments database");
 	}
     } else {
-	servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament data");
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament data");
     }
     sendTournamentMainData(cookie);
 }
@@ -592,7 +316,7 @@ function processSaveAllTournamentsData(cookie, data) {
 // Single tournament edit UI
 
 function processGetSingleTournamentForEdit(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests single tournament data for edit.");
+    framework.servicelog("Client #" + cookie.count + " requests single tournament data for edit.");
     if(userHasEditTournamentsPrivilige(cookie.user)) {
 	var tournament = datastorage.read("tournaments").tournaments.map(function(t) {
 	    if(t.id === data.buttonData) { return t; }
@@ -601,18 +325,18 @@ function processGetSingleTournamentForEdit(cookie, data) {
 	var topButtonList =  createTopButtonList(cookie, false);
 	var items = [];
 	tournament.games.forEach(function(t) {
-	    items.push([ [ createUiTextArea("time", t.time, 20) ],
-			 [ createUiSelectionList("home", createTeamList(), getTeamNameFromId(t.home)) ],
-			 [ createUiSelectionList("guest", createTeamList(), getTeamNameFromId(t.guest)) ] ]);
+	    items.push([ [ framework.createUiTextArea("time", t.time, 20) ],
+			 [ framework.createUiSelectionList("home", createTeamList(), getTeamNameFromId(t.home)) ],
+			 [ framework.createUiSelectionList("guest", createTeamList(), getTeamNameFromId(t.guest)) ] ]);
 	});
 
 	var itemList = { title: tournament.name,
 			 frameId: 0,
 			 header: [ { text: "Time" }, { text: "Home" }, { text: "Guest" } ],
 			 items: items,
-			 newItem: [ [ createUiTextArea("time", "<time>", 20) ],
-				    [ createUiSelectionList("home", createTeamList(), "") ],
-				    [ createUiSelectionList("guest", createTeamList(), "") ] ] };
+			 newItem: [ [ framework.createUiTextArea("time", "<time>", 20) ],
+				    [ framework.createUiSelectionList("home", createTeamList(), "") ],
+				    [ framework.createUiSelectionList("guest", createTeamList(), "") ] ] };
 
 	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
 
@@ -624,16 +348,16 @@ function processGetSingleTournamentForEdit(cookie, data) {
 				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveTournamentGameData", data: tournament.id },
 					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
 
-	sendCipherTextToClient(cookie, sendable);
-	servicelog("Sent NEW gameData to client #" + cookie.count);
+	framework.sendCipherTextToClient(cookie, sendable);
+	framework.servicelog("Sent NEW gameData to client #" + cookie.count);
     } else {
-	servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament data");
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament data");
 	sendTournamentMainData(cookie);
     }
 }
 
 function processSaveTournamentGameData(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests saving single tournament game data.");
+    framework.servicelog("Client #" + cookie.count + " requests saving single tournament game data.");
     if(userHasEditTournamentsPrivilige(cookie.user)) {
 	var newTournaments = [];
 	var oldTournaments = datastorage.read("tournaments");
@@ -657,12 +381,12 @@ function processSaveTournamentGameData(cookie, data) {
 	    }
 	});
 	if(datastorage.write("tournaments", { nextId: oldTournaments.nextId, tournaments: newTournaments }) === false) {
-	    servicelog("Tournaments database write failed");
+	    framework.servicelog("Tournaments database write failed");
 	} else {
-	    servicelog("Updated tournaments database");
+	    framework.servicelog("Updated tournaments database");
 	}
     } else {
-	servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament data");
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament data");
     }
     sendTournamentMainData(cookie);
 }
@@ -671,7 +395,7 @@ function processSaveTournamentGameData(cookie, data) {
 // Main team edit UI, list of teams
 
 function processGetTeamsDataForEdit(cookie, content) {
-    servicelog("Client #" + cookie.count + " requests teams edit");
+    framework.servicelog("Client #" + cookie.count + " requests teams edit");
     if(userHasEditTeamsPrivilige(cookie.user) || userHasEditPlayersPrivilige(cookie.user)) {
 	var sendable;
 	var topButtonList =  createTopButtonList(cookie, false);
@@ -679,15 +403,15 @@ function processGetTeamsDataForEdit(cookie, content) {
 	var frameList;
 	var buttonList;
 	datastorage.read("teams").teams.forEach(function(t) {
-	    var nameNode = createUiTextNode("name", t.name, 25);
-	    var buttonNode = buttonNode = createUiButton("Muokkaa", "getSingleTeamForEdit", t.id, false);
+	    var nameNode = framework.createUiTextNode("name", t.name, 25);
+	    var buttonNode = buttonNode = framework.createUiButton("Muokkaa", "getSingleTeamForEdit", t.id, false);
 	    if(userHasEditPlayersPrivilige(cookie.user)) {
-		buttonNode = createUiButton("Muokkaa", "getSingleTeamForEdit", t.id, true);
+		buttonNode = framework.createUiButton("Muokkaa", "getSingleTeamForEdit", t.id, true);
 	    }
 	    if(userHasEditTeamsPrivilige(cookie.user))	{
-		nameNode = createUiTextArea("name", t.name, 25);
+		nameNode = framework.createUiTextArea("name", t.name, 25);
 	    }
-	    items.push([ [ createUiTextNode("id", t.id, 10) ],
+	    items.push([ [ framework.createUiTextNode("id", t.id, 10) ],
 			 [ nameNode ],
 			 [ buttonNode ] ]);
 	});
@@ -697,9 +421,9 @@ function processGetTeamsDataForEdit(cookie, content) {
 			     frameId: 0,
 			     header: [ { text: "Id" }, { text: "Name" }, { text: "" } ],
 			     items: items,
-			     newItem: [ [ createUiTextNode("id", "", 10) ],
-					[ createUiTextArea("name", "<name>", 25) ],
-					[ createUiTextNode("", "", 25) ] ] };
+			     newItem: [ [ framework.createUiTextNode("id", "", 10) ],
+					[ framework.createUiTextArea("name", "<name>", 25) ],
+					[ framework.createUiTextNode("", "", 25) ] ] };
 	    frameList = [ { frameType: "editListFrame", frame: itemList } ];
 	    buttonList = [ { id: 501, text: "OK", callbackMessage: "saveAllTeamsData" },
 			   { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ];
@@ -719,16 +443,16 @@ function processGetTeamsDataForEdit(cookie, content) {
 				frameList: frameList,
 				buttonList: buttonList } };
 
-	sendCipherTextToClient(cookie, sendable);
-	servicelog("Sent NEW teamsData to client #" + cookie.count);
+	framework.sendCipherTextToClient(cookie, sendable);
+	framework.servicelog("Sent NEW teamsData to client #" + cookie.count);
     } else {
-	servicelog("User " + cookie.user.username + " does not have priviliges to edit teams");
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit teams");
 	sendTournamentMainData(cookie);
     }
 }
 
 function processSaveAllTeamsData(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests teams data saving.");
+    framework.servicelog("Client #" + cookie.count + " requests teams data saving.");
     if(userHasEditTeamsPrivilige(cookie.user)) {
 	var newTeams = [];
 	var oldTeams = datastorage.read("teams").teams;
@@ -751,12 +475,12 @@ function processSaveAllTeamsData(cookie, data) {
 	    if(flag) { newTeams.push({ name: t.name, id: nextId++, players: [] }); }
 	});
 	if(datastorage.write("teams", { nextId: nextId, teams: newTeams }) === false) {
-	    servicelog("Teams database write failed");
+	    framework.servicelog("Teams database write failed");
 	} else {
-	    servicelog("Updated teams database");
+	    framework.servicelog("Updated teams database");
 	}
     } else {
-	servicelog("User " + cookie.user.username + " does not have priviliges to edit teams");
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit teams");
     }
     sendTournamentMainData(cookie);
 }
@@ -765,7 +489,7 @@ function processSaveAllTeamsData(cookie, data) {
 // Team member edit UI panel
 
 function processGetSingleTeamForEdit(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests team data for editing.");
+    framework.servicelog("Client #" + cookie.count + " requests team data for editing.");
     if(userHasEditPlayersPrivilige(cookie.user)) {
 	var sendable;
 	var topButtonList =  createTopButtonList(cookie, false);
@@ -773,8 +497,8 @@ function processGetSingleTeamForEdit(cookie, data) {
 	datastorage.read("teams").teams.forEach(function(t) {
 	    if(t.id === data.buttonData) {
 		t.players.forEach(function(p) {
-		    items.push([ [ createUiTextArea("name", p.name, 25) ],
-				 [ createUiTextArea("number", p.number, 25) ] ]);
+		    items.push([ [ framework.createUiTextArea("name", p.name, 25) ],
+				 [ framework.createUiTextArea("number", p.number, 25) ] ]);
 		});
 	    }
 	});
@@ -783,8 +507,8 @@ function processGetSingleTeamForEdit(cookie, data) {
 			 frameId: 0,
 			 header: [ { text: "Name" }, { text: "Number" } ],
 			 items: items,
-			 newItem: [ [ createUiTextArea("name", "<name>", 25) ],
-				    [ createUiTextArea("number", "<x>", 25) ] ] };
+			 newItem: [ [ framework.createUiTextArea("name", "<name>", 25) ],
+				    [ framework.createUiTextArea("number", "<x>", 25) ] ] };
 
 	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
 
@@ -796,22 +520,22 @@ function processGetSingleTeamForEdit(cookie, data) {
 				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveSingleTeamData", data: data.buttonData },
 					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
 
-	sendCipherTextToClient(cookie, sendable);
-	servicelog("Sent NEW teamData to client #" + cookie.count);
+	framework.sendCipherTextToClient(cookie, sendable);
+	framework.servicelog("Sent NEW teamData to client #" + cookie.count);
     } else {
-	servicelog("User " + cookie.user.username + " does not have priviliges to edit players");
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit players");
 	sendTournamentMainData(cookie);
     }
 }
 
 function processSaveSingleTeamData(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests single team saving.");
+    framework.servicelog("Client #" + cookie.count + " requests single team saving.");
     if(userHasEditPlayersPrivilige(cookie.user)) {
 	data.buttonList.forEach(function(b) {
 	    if(b.text === "OK") { updateSingleTeamFromClient(cookie, b.data, data); }
 	});
     } else {
-	servicelog("User " + cookie.user.username + " does not have priviliges to edit players");
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit players");
     }
     sendTournamentMainData(cookie);
 }
@@ -834,9 +558,9 @@ function updateSingleTeamFromClient(cookie, teamId, data) {
 	}
     });
     if(datastorage.write("teams", { nextId: nextId, teams: newTeams }) === false) {
-	servicelog("Teams database write failed");
+	framework.servicelog("Teams database write failed");
     } else {
-	servicelog("Updated teams database");
+	framework.servicelog("Updated teams database");
     }
 }
 
@@ -844,26 +568,26 @@ function updateSingleTeamFromClient(cookie, teamId, data) {
 // Administration UI panel
 
 function processGainAdminMode(cookie, content) {
-    servicelog("Client #" + cookie.count + " requests Sytem Administration priviliges");
+    framework.servicelog("Client #" + cookie.count + " requests Sytem Administration priviliges");
     if(userHasSysAdminPrivilige(cookie.user)) {
-	servicelog("Granting Sytem Administration priviliges to user " + cookie.user.username);
+	framework.servicelog("Granting Sytem Administration priviliges to user " + cookie.user.username);
 	var sendable;
 	var topButtonList =  createTopButtonList(cookie, true);
 
 	var items = [];
 	datastorage.read("users").users.forEach(function(u) {
-	    items.push([ [ createUiTextNode("username", u.username) ],
-			 [ createUiTextArea("realname", u.realname, 25) ],
-			 [ createUiTextArea("email", u.email, 30) ],
-			 [ createUiTextArea("phone", u.phone, 15) ],
-			 [ createUiCheckBox("view", userHasViewPrivilige(u), "v"),
-			   createUiCheckBox("score-edit", userHasEditScoresPrivilige(u), "se"),
-			   createUiCheckBox("team-edit", userHasEditTeamsPrivilige(u), "te"),
-			   createUiCheckBox("player-edit", userHasEditPlayersPrivilige(u), "pe"),
-			   createUiCheckBox("tournament-edit", userHasEditTournamentsPrivilige(u), "to"),
-			   createUiCheckBox("system-admin", userHasSysAdminPrivilige(u), "a") ],
-		         [ createUiButton("Vaihda", "changeUserPassword", u.username),
-			   createUiInputField("password", "", true) ] ] )
+	    items.push([ [ framework.createUiTextNode("username", u.username) ],
+			 [ framework.createUiTextArea("realname", u.realname, 25) ],
+			 [ framework.createUiTextArea("email", u.email, 30) ],
+			 [ framework.createUiTextArea("phone", u.phone, 15) ],
+			 [ framework.createUiCheckBox("view", userHasViewPrivilige(u), "v"),
+			   framework.createUiCheckBox("score-edit", userHasEditScoresPrivilige(u), "se"),
+			   framework.createUiCheckBox("team-edit", userHasEditTeamsPrivilige(u), "te"),
+			   framework.createUiCheckBox("player-edit", userHasEditPlayersPrivilige(u), "pe"),
+			   framework.createUiCheckBox("tournament-edit", userHasEditTournamentsPrivilige(u), "to"),
+			   framework.createUiCheckBox("system-admin", userHasSysAdminPrivilige(u), "a") ],
+		         [ framework.createUiButton("Vaihda", "changeUserPassword", u.username),
+			   framework.createUiInputField("password", "", true) ] ] )
 	});
 
 	var itemList = { title: "User Admin Data",
@@ -871,17 +595,17 @@ function processGainAdminMode(cookie, content) {
 			 header: [ { text: "username" }, { text: "realname" }, { text: "email" },
 				   { text: "phone" }, { text: "V / S / Te / Pe / To / A" }, { text: "Vaihda Salasana" } ],
 			 items: items,
-			 newItem: [ [ createUiTextArea("username", "<username>") ],
-				    [ createUiTextArea("realname", "<realname>", 25) ],
-				    [ createUiTextArea("email", "<email>", 30) ],
-				    [ createUiTextArea("phone", "<phone>", 15) ],
-				    [ createUiCheckBox("view", false, "v"),
-				      createUiCheckBox("score-edit", false, "se"),
-				      createUiCheckBox("team-edit", false, "te"),
-				      createUiCheckBox("player-edit", false, "pe"),
-				      createUiCheckBox("tournament-edit", false, "to"),
-				      createUiCheckBox("system-admin", false, "a") ],
-				    [ createUiTextNode("password", "") ] ] };
+			 newItem: [ [ framework.createUiTextArea("username", "<username>") ],
+				    [ framework.createUiTextArea("realname", "<realname>", 25) ],
+				    [ framework.createUiTextArea("email", "<email>", 30) ],
+				    [ framework.createUiTextArea("phone", "<phone>", 15) ],
+				    [ framework.createUiCheckBox("view", false, "v"),
+				      framework.createUiCheckBox("score-edit", false, "se"),
+				      framework.createUiCheckBox("team-edit", false, "te"),
+				      framework.createUiCheckBox("player-edit", false, "pe"),
+				      framework.createUiCheckBox("tournament-edit", false, "to"),
+				      framework.createUiCheckBox("system-admin", false, "a") ],
+				    [ framework.createUiTextNode("password", "") ] ] };
 
 	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
 
@@ -893,21 +617,21 @@ function processGainAdminMode(cookie, content) {
 				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveAdminData" },
 					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
 
-	sendCipherTextToClient(cookie, sendable);
-	servicelog("Sent NEW adminData to client #" + cookie.count);
+	framework.sendCipherTextToClient(cookie, sendable);
+	framework.servicelog("Sent NEW adminData to client #" + cookie.count);
 
     } else {
-	servicelog("User " + cookie.user.username + " does not have Sytem Administration priviliges!");
-	processClientStarted(cookie);
+	framework.servicelog("User " + cookie.user.username + " does not have Sytem Administration priviliges!");
+	framework.processClientStarted(cookie);
     }	
 }
 
 function processSaveAdminData(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests admin data saving.");
+    framework.servicelog("Client #" + cookie.count + " requests admin data saving.");
     if(userHasSysAdminPrivilige(cookie.user)) {
 	updateAdminDataFromClient(cookie, data);
     } else {
-	servicelog("User " + cookie.user.username + " does not have priviliges to edit admin data");
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit admin data");
     }
     sendTournamentMainData(cookie);
 }
@@ -938,14 +662,14 @@ function updateAdminDataFromClient(cookie, userData) {
     });
 
     if(datastorage.write("users", { users: newUsers }) === false) {
-	servicelog("User database write failed");
+	framework.servicelog("User database write failed");
     } else {
-	servicelog("Updated User database.");
+	framework.servicelog("Updated User database.");
     }
 }
 
 function processChangeUserPassword(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests user password change.");
+    framework.servicelog("Client #" + cookie.count + " requests user password change.");
     if(userHasSysAdminPrivilige(cookie.user)) {
 	var passwordChange = extractPasswordChangeFromInputData(data);
 	if(passwordChange === null) {
@@ -968,16 +692,16 @@ function processChangeUserPassword(cookie, data) {
 	    }
 	});
 	if(datastorage.write("users", { users: newUsers }) === false) {
-	    servicelog("User database write failed");
-	    setStatustoClient(cookie, "Password Change FAILED");
+	    framework.servicelog("User database write failed");
+	    framework.setStatustoClient(cookie, "Password Change FAILED");
 	} else {
-	    servicelog("Updated password of user [" + JSON.stringify(passwordChange.userName) + "]");
-	    setStatustoClient(cookie, "Password Changed OK");
+	    framework.servicelog("Updated password of user [" + JSON.stringify(passwordChange.userName) + "]");
+	    framework.setStatustoClient(cookie, "Password Changed OK");
 	    processGainAdminMode(cookie);
 	    return;
 	}
     } else {
-	servicelog("User " + cookie.user.username + " does not have priviliges to change passwords");
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to change passwords");
     }
     sendTournamentMainData(cookie);
 }
@@ -991,11 +715,11 @@ function sendOneTournamentForScoresEdit(cookie, tournament) {
     var items = [];
     var count = 1;
     tournament.games.forEach(function(t) {
-	items.push( [ [ createUiTextNode("time", t.time) ],
-		      [ createUiTextNode("home", getTeamNameFromId(t.home)) ],
-		      [ createUiTextNode("guest", getTeamNameFromId(t.guest)) ],
-		      [ createUiTextNode("result", t.result) ],
-		      [ createUiButton("Muokkaa", "getOneMatchScoresForEdit", 
+	items.push( [ [ framework.createUiTextNode("time", t.time) ],
+		      [ framework.createUiTextNode("home", getTeamNameFromId(t.home)) ],
+		      [ framework.createUiTextNode("guest", getTeamNameFromId(t.guest)) ],
+		      [ framework.createUiTextNode("result", t.result) ],
+		      [ framework.createUiButton("Muokkaa", "getOneMatchScoresForEdit", 
 				       { id: tournament.id, round: count++ }) ] ] );
     });
 
@@ -1016,8 +740,8 @@ function sendOneTournamentForScoresEdit(cookie, tournament) {
 			    frameList: frameList,
 			    buttonList: buttonList } };
 			    
-    sendCipherTextToClient(cookie, sendable);
-    servicelog("Sent NEW editTournamentScores to client #" + cookie.count);
+    framework.sendCipherTextToClient(cookie, sendable);
+    framework.servicelog("Sent NEW editTournamentScores to client #" + cookie.count);
 }
 
 function processGetOneMatchScoresForEdit(cookie, data) {
@@ -1025,14 +749,14 @@ function processGetOneMatchScoresForEdit(cookie, data) {
 	var tournamentId = data.buttonData.id;
 	var tournamentRound = data.buttonData.round;
     } catch(err) {
-	servicelog("Cannot parse either tournament name or round: " + err);
+	framework.servicelog("Cannot parse either tournament name or round: " + err);
 	return;
     }
-    servicelog("Client #" + cookie.count + " requests match scores edit.");
+    framework.servicelog("Client #" + cookie.count + " requests match scores edit.");
     if(userHasEditScoresPrivilige(cookie.user)) {
 	sendOneMatchForScoresEdit(cookie, getMatchDataById(tournamentId, tournamentRound));
     } else {
-	servicelog("User " + cookie.user.username + " does not have priviliges to edit match scores");
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit match scores");
     }
 }
 
@@ -1046,24 +770,24 @@ function sendOneMatchForScoresEdit(cookie, match) {
     var penaltyItems = [];
 
     match.scores.forEach(function(s) {
-	scoreItems.push([ [ createUiSelectionList("piste", [ getTeamNameFromId(match.home),
+	scoreItems.push([ [ framework.createUiSelectionList("piste", [ getTeamNameFromId(match.home),
 							     getTeamNameFromId(match.guest) ],
 						  getTeamNameFromId(s.point)) ],
-			  [ createUiSelectionList("tyyppi", createScoreTypes(), s.type) ],
-			  [ createUiTextArea("aika", s.time) ],
-			  [ createUiSelectionList("tekijä", createPlayerList(match), createPlayer(s.scorer)) ],
-			  [ createUiSelectionList("syöttäjä", createPlayerList(match), createPlayer(s.passer)) ] ]);
+			  [ framework.createUiSelectionList("tyyppi", createScoreTypes(), s.type) ],
+			  [ framework.createUiTextArea("aika", s.time) ],
+			  [ framework.createUiSelectionList("tekijä", createPlayerList(match), createPlayer(s.scorer)) ],
+			  [ framework.createUiSelectionList("syöttäjä", createPlayerList(match), createPlayer(s.passer)) ] ]);
     });
 
     match.penalties.forEach(function(p) {
-	penaltyItems.push([ [ createUiSelectionList("rangaistus", [ getTeamNameFromId(match.home),
+	penaltyItems.push([ [ framework.createUiSelectionList("rangaistus", [ getTeamNameFromId(match.home),
 								    getTeamNameFromId(match.guest) ],
 						    getTeamNameFromId(p.penalty)) ],
-			    [ createUiTextArea("aloitusaika", p.starttime) ],
-			    [ createUiTextArea("lopetusaika", p.endtime) ],
-			    [ createUiSelectionList("koodi", createPenaltyCodes(), p.code) ],
-			    [ createUiSelectionList("pituus", createPenaltyTimes(), p.length) ],
-			    [ createUiSelectionList("pelaaja", createPlayerList(match), createPlayer(p.player)) ] ]);
+			    [ framework.createUiTextArea("aloitusaika", p.starttime) ],
+			    [ framework.createUiTextArea("lopetusaika", p.endtime) ],
+			    [ framework.createUiSelectionList("koodi", createPenaltyCodes(), p.code) ],
+			    [ framework.createUiSelectionList("pituus", createPenaltyTimes(), p.length) ],
+			    [ framework.createUiSelectionList("pelaaja", createPlayerList(match), createPlayer(p.player)) ] ]);
     });
 
     var scoresItemList = { title: "Pisteet: " + getTeamNameFromId(match.home) + " - " + getTeamNameFromId(match.guest),
@@ -1071,25 +795,25 @@ function sendOneMatchForScoresEdit(cookie, match) {
 			   header: [ { text: "piste" }, { text: "tyyppi" }, { text: "aika" },
 				     { text: "tekijä" }, { text: "syöttäjä" } ],
 			   items: scoreItems,
-			   newItem: [ [ createUiSelectionList("piste", [ getTeamNameFromId(match.home),
+			   newItem: [ [ framework.createUiSelectionList("piste", [ getTeamNameFromId(match.home),
 									 getTeamNameFromId(match.guest) ], "" ) ],
-				      [ createUiSelectionList("tyyppi", createScoreTypes(), "") ],
-				      [ createUiTextArea("aika", "") ],
-				      [ createUiSelectionList("tekijä", createPlayerList(match), "") ],
-				      [ createUiSelectionList("syöttäjä", createPlayerList(match), "") ] ] };
+				      [ framework.createUiSelectionList("tyyppi", createScoreTypes(), "") ],
+				      [ framework.createUiTextArea("aika", "") ],
+				      [ framework.createUiSelectionList("tekijä", createPlayerList(match), "") ],
+				      [ framework.createUiSelectionList("syöttäjä", createPlayerList(match), "") ] ] };
 
     var penaltiesItemList = { title: "Rangaistukset: " + getTeamNameFromId(match.home) + " - " + getTeamNameFromId(match.guest),
 			      frameId: 1,
 			      header: [ { text: "rangaistus" }, { text: "alkoi" }, { text: "päättyi" }, { text: "koodi" },
 					{ text: "pituus" }, { text: "pelaaja" } ],
 			      items: penaltyItems,
-			      newItem: [ [ createUiSelectionList("rangaistus", [ getTeamNameFromId(match.home),
+			      newItem: [ [ framework.createUiSelectionList("rangaistus", [ getTeamNameFromId(match.home),
 										 getTeamNameFromId(match.guest) ], "" ) ],
-					 [ createUiTextArea("aloitusaika", "") ],
-					 [ createUiTextArea("lopetusaika", "") ],
-					 [ createUiSelectionList("koodi", createPenaltyCodes(), "") ],
-					 [ createUiSelectionList("pituus", createPenaltyTimes(), "") ],
-					 [ createUiSelectionList("pelaaja", createPlayerList(match), "") ] ] };
+					 [ framework.createUiTextArea("aloitusaika", "") ],
+					 [ framework.createUiTextArea("lopetusaika", "") ],
+					 [ framework.createUiSelectionList("koodi", createPenaltyCodes(), "") ],
+					 [ framework.createUiSelectionList("pituus", createPenaltyTimes(), "") ],
+					 [ framework.createUiSelectionList("pelaaja", createPlayerList(match), "") ] ] };
 
 //    var frameList = [ { frameType: "editListFrame", frame: scoresItemList } ];
     var frameList = [ { frameType: "editListFrame", frame: scoresItemList },
@@ -1103,8 +827,8 @@ function sendOneMatchForScoresEdit(cookie, match) {
 			    buttonList: [ { id: 501, text: "OK", callbackMessage: "saveMatchScores", data: match.id },
 					  { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
 
-    sendCipherTextToClient(cookie, sendable);
-    servicelog("Sent NEW editMatchScores to client #" + cookie.count);
+    framework.sendCipherTextToClient(cookie, sendable);
+    framework.servicelog("Sent NEW editMatchScores to client #" + cookie.count);
 }
 
 function createPlayerList(match) {
@@ -1189,13 +913,13 @@ function createPenaltyCodes() {
 }
 
 function processSaveMatchScores(cookie, data) {
-    servicelog("Client #" + cookie.count + " requests match scores saving.");
+    framework.servicelog("Client #" + cookie.count + " requests match scores saving.");
     if(userHasEditScoresPrivilige(cookie.user)) {
 	data.buttonList.forEach(function(b) {
 	    if(b.text === "OK") { updateMatchStatisticsFromClient(cookie, b.data, data); }
 	});
     } else {
-	servicelog("User " + cookie.user.username + " does not have priviliges to edit match scores");
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit match scores");
     }
     sendTournamentMainData(cookie);
 }
@@ -1236,10 +960,10 @@ function updateMatchStatisticsFromClient(cookie, match, matchData) {
 	}
     });
     if(datastorage.write("tournaments", { nextId: oldTournaments.nextId, tournaments: newTournaments }) === false) {
-	servicelog("Tournament database write failed");
+	framework.servicelog("Tournament database write failed");
     } else {
 	createTournamentHtmlPages(getTournamentDataById(match.id));
-	servicelog("Updated tournament database.");
+	framework.servicelog("Updated tournament database.");
     }
 }
 
@@ -1461,11 +1185,11 @@ function calculateResultFromScores(scores, teams) {
 
 function inputItemsFailVerification(inputData) {
     if(inputData.items === undefined) {
-	servicelog("inputData does not contain items");
+	framework.servicelog("inputData does not contain items");
 	return true;
     }
     if(inputData.buttonList === undefined) {
-	servicelog("inputData does not contain buttonList");
+	framework.servicelog("inputData does not contain buttonList");
 	return true;
     }
     return false;
@@ -1583,11 +1307,11 @@ function extractUserListFromInputData(data) {
 		    if(row[0].key === "username") {
 			if(row[0].text !== undefined) {
 			    user.username = row[0].text;
-			    user.hash = sha1.hash(row[0].text);
+			    user.hash = framework.sha1(row[0].text);
 			}
 			if(row[0].value !== undefined) {
 			    user.username = row[0].value;
-			    user.hash = sha1.hash(row[0].value);
+			    user.hash = framework.sha1(row[0].value);
 			}
 		    }
 		    if(row[0].key === "realname") { user.realname = row[0].value; }
@@ -1618,26 +1342,26 @@ function extractUserListFromInputData(data) {
 
 function extractPasswordChangeFromInputData(data) {
     if(data.buttonData === undefined) {
-	servicelog("inputData does not contain buttonData");
+	framework.servicelog("inputData does not contain buttonData");
 	return null;
     }
     if(data.items === undefined) {
-	servicelog("inputData does not contain items");
+	framework.servicelog("inputData does not contain items");
 	return null;
     }
     if(data.items[0] === undefined) {
-	servicelog("inputData.items is not an array");
+	framework.servicelog("inputData.items is not an array");
 	return null;
     }
     if(data.items[0].frame === undefined) {
-	servicelog("inputData.items does not contain frame");
+	framework.servicelog("inputData.items does not contain frame");
 	return null;
     }
 
     var passwordChange = data.items[0].frame.map(function(u) {
 	if(u[0][0].text === data.buttonData) {
 	    return { userName: u[0][0].text,
-		     password: sha1.hash(u[5][1].value + sha1.hash(u[0][0].text).slice(0,4)) };
+		     password: framework.sha1(u[5][1].value + framework.sha1(u[0][0].text).slice(0,4)) };
 	}
     }).filter(function(f){return f;})[0];
     return passwordChange;
@@ -1655,10 +1379,10 @@ function updateDatabaseVersionTo_1() {
 			players: t.players });
     });
     if(datastorage.write("teams", { nextId: nextId, teams: newTeams }) === false) {
-	servicelog("Updated teams database write failed");
+	framework.servicelog("Updated teams database write failed");
 	process.exit(1);
     } else {
-	servicelog("Updated teams database to v.1");
+	framework.servicelog("Updated teams database to v.1");
     }
     var newTournaments = [];
     var nextId = 1;
@@ -1687,17 +1411,17 @@ function updateDatabaseVersionTo_1() {
 			      games: newGames });
     });
     if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
-	servicelog("Updated tournaments database write failed");
+	framework.servicelog("Updated tournaments database write failed");
 	process.exit(1);
     } else {
-	servicelog("Updated tournaments database to v.1");
+	framework.servicelog("Updated tournaments database to v.1");
     }
     mainConfig.version = 1;
     if(datastorage.write("main", { main: mainConfig }) === false) {
-	servicelog("Updated main database write failed");
+	framework.servicelog("Updated main database write failed");
 	process.exit(1);
     } else {
-	servicelog("Updated main database to v.1");
+	framework.servicelog("Updated main database to v.1");
     }
 }
 
@@ -1722,17 +1446,17 @@ function updateDatabaseVersionTo_2() {
 			      games: newGames });
     });
     if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
-	servicelog("Updated tournaments database write failed");
+	framework.servicelog("Updated tournaments database write failed");
 	process.exit(1);
     } else {
-	servicelog("Updated tournaments database to v.2");
+	framework.servicelog("Updated tournaments database to v.2");
     }
     mainConfig.version = 2;
     if(datastorage.write("main", { main: mainConfig }) === false) {
-	servicelog("Updated main database write failed");
+	framework.servicelog("Updated main database write failed");
 	process.exit(1);
     } else {
-	servicelog("Updated main database to v.2");
+	framework.servicelog("Updated main database to v.2");
     }
 }
 
@@ -1778,21 +1502,21 @@ function updateDatabaseVersionTo_3() {
 			      games: newGames });
     });
     if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
-	servicelog("Updated tournaments database write failed");
+	framework.servicelog("Updated tournaments database write failed");
 	process.exit(1);
     } else {
-	servicelog("Updated tournaments database to v.3");
+	framework.servicelog("Updated tournaments database to v.3");
     }
     mainConfig.version = 3;
     if(datastorage.write("main", { main: mainConfig }) === false) {
-	servicelog("Updated main database write failed");
+	framework.servicelog("Updated main database write failed");
 	process.exit(1);
     } else {
-	servicelog("Updated main database to v.3");
+	framework.servicelog("Updated main database to v.3");
     }
 }
 
-// datastorage.setLogger(servicelog);
+// datastorage.setLogger(framework.servicelog);
 datastorage.initialize("main", { main: { version: databaseVersion,
 					 port: 8080,
 					 siteFullUrl: "http://url.to.pantterilasku/" } });
@@ -1814,11 +1538,11 @@ var mainConfig = datastorage.read("main").main;
 
 if(mainConfig.version === undefined) { mainConfig.version = 0; }
 if(mainConfig.version > databaseVersion) {
-    servicelog("Database version is too high for this program release, please update program.");
+    framework.servicelog("Database version is too high for this program release, please update program.");
     process.exit(1);
 }
 if(mainConfig.version < databaseVersion) {
-    servicelog("Updating database version to most recent supported by this program release.");
+    framework.servicelog("Updating database version to most recent supported by this program release.");
     if(mainConfig.version === 0) {
 	// update database version from 0 to 1
 	updateDatabaseVersionTo_1();
@@ -1833,8 +1557,9 @@ if(mainConfig.version < databaseVersion) {
     }
 }
 
-webServer.listen(mainConfig.port, function() {
-    servicelog("Waiting for client connection to port " + mainConfig.port + "...");
-});
+framework.setCallback("getUserPriviliges", getUserPriviliges);
+framework.setCallback("sendUiTopPanel", sendTournamentMainData);
+framework.setCallback("handleIncomingMessage", handleIncomingMessage);
+framework.startUiLoop(mainConfig.port);
 
 
