@@ -1484,7 +1484,8 @@ function extractGamesDataFromInputData(data) {
 			 home: getTeamIdFromName(g[1][0].selected),
 			 guest: getTeamIdFromName(g[2][0].selected),
 			 result: "-",
-			 scores: [] });
+			 scores: [],
+			 penalties: [] });
 	});
     });
     return games;
