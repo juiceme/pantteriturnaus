@@ -33,7 +33,7 @@ function handleIncomingMessage(cookie, decryptedMessage) {
 	if(decryptedMessage.type === "changeUserPassword") {
 	    processChangeUserPassword(cookie, decryptedMessage.content); }
 	if(decryptedMessage.type === "resetToMain") {
-	    framework.processResetToMainState(cookie, decryptedMessage.content); }
+	    processResetToMainState(cookie, decryptedMessage.content); }
 	if(decryptedMessage.type === "getOneMatchScoresForEdit") {
 	    processGetOneMatchScoresForEdit(cookie, decryptedMessage.content); }
 	if(decryptedMessage.type === "saveMatchScores") {
@@ -89,6 +89,12 @@ function createTeamList() {
 
 
 // privilige management
+
+function getUserByHashedUserName(hash) {
+    return datastorage.read("users").users.filter(function(u) {
+	return u.hash === hash;
+    });
+}
 
 function getUserPriviliges(user) {
     if(user.applicationData.priviliges.length === 0) { return []; }
@@ -155,6 +161,15 @@ function createTopButtonList(cookie, adminRequest) {
 
 
 // Main tournament UI panel, list of available tournaments
+
+function processResetToMainState(cookie, content) {
+    // this shows up the first UI panel when uses login succeeds or other panels send "OK" / "Cancel" 
+    framework.servicelog("User session reset to main state");
+    cookie.user = datastorage.read("users").users.filter(function(u) {
+	return u.username === cookie.user.username;
+    })[0];
+    sendTournamentMainData(cookie);
+}
 
 function sendTournamentMainData(cookie) {
     var sendable;
@@ -1557,9 +1572,10 @@ if(mainConfig.version < databaseVersion) {
     }
 }
 
+framework.setCallback("getUserByHashedUserName", getUserByHashedUserName);
 framework.setCallback("getUserPriviliges", getUserPriviliges);
-framework.setCallback("sendUiTopPanel", sendTournamentMainData);
 framework.setCallback("handleIncomingMessage", handleIncomingMessage);
+framework.setCallback("processResetToMainState", processResetToMainState);
 framework.startUiLoop(mainConfig.port);
 
 

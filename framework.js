@@ -1,11 +1,9 @@
 var websocket = require("websocket");
 var http = require("http");
 var fs = require("fs");
-var path = require("path");
 var Aes = require('./crypto/aes.js');
 Aes.Ctr = require('./crypto/aes-ctr.js');
 var sha1 = require('./crypto/sha1.js');
-var datastorage = require('./datastorage/datastorage.js');
 
 var websocPort = 0;
 var globalSalt = sha1.hash(JSON.stringify(new Date().getTime()));
@@ -153,18 +151,6 @@ function setState(cookie, state) {
     cookie.state = state;
 }
 
-function getUserByUserName(username) {
-    return datastorage.read("users").users.filter(function(u) {
-	return u.username === username;
-    });
-}
-
-function getUserByHashedName(hash) {
-    return datastorage.read("users").users.filter(function(u) {
-	return u.hash === hash;
-    });
-}
-
 function getNewChallenge() {
     return ("challenge_" + sha1.hash(globalSalt + new Date().getTime().toString()) + "1");
 }
@@ -193,7 +179,7 @@ function processUserLogin(cookie, content) {
 	processClientStarted(cookie);
 	return;
     } else {
-	var user = getUserByHashedName(content.username);
+	var user = runCallbacByName("getUserByHashedUserName", content.username);
 	if(user.length === 0) {
 	    servicelog("Unknown user login attempt");
 	    processClientStarted(cookie);
@@ -229,19 +215,13 @@ function processLoginResponse(cookie, content) {
 	    sendCipherTextToClient(cookie, sendable);
 	    servicelog("Sent unpriviligedLogin info to client #" + cookie.count);
 	} else {
-	    processResetToMainState(cookie);
+	    // Login succeeds, start the UI engine
+	    runCallbacByName("processResetToMainState", cookie);
 	}
     } else {
 	servicelog("User login failed on client #" + cookie.count);
 	processClientStarted(cookie);
     }
-}
-
-function processResetToMainState(cookie, content) {
-    // this shows up the first UI panel when uses login succeeds or other panels send "OK" / "Cancel" 
-    servicelog("User session reset to main state");
-    cookie.user = getUserByUserName(cookie.user.username)[0];
-    runCallbacByName("sendUiTopPanel", cookie);
 }
 
 
@@ -317,6 +297,5 @@ module.exports.processClientStarted = processClientStarted;
 module.exports.stateIs = stateIs;
 module.exports.setState = setState;
 module.exports.setStatustoClient = setStatustoClient;
-module.exports.processResetToMainState = processResetToMainState;
 module.exports.sha1 = sha1.hash;
 module.exports.aes = Aes.Ctr;
