@@ -128,7 +128,7 @@ wsServer.on('request', function(request) {
 
 function defragmentIncomingMessage(cookie, decryptedMessage) {
     if(decryptedMessage.type === "nonFragmented") {
-	runCallbacByName("handleIncomingMessage", cookie, JSON.parse(decryptedMessage.data));
+	handleIncomingMessage(cookie, JSON.parse(decryptedMessage.data));
     }
     if(decryptedMessage.type === "fragment") {
 	if(decryptedMessage.id === 0) {
@@ -139,7 +139,23 @@ function defragmentIncomingMessage(cookie, decryptedMessage) {
     }
     if(decryptedMessage.type === "lastFragment") {
 	cookie.incomingMessageBuffer = cookie.incomingMessageBuffer + decryptedMessage.data;
-	runCallbacByName("handleIncomingMessage", cookie, JSON.parse(cookie.incomingMessageBuffer));
+	handleIncomingMessage(cookie, JSON.parse(cookie.incomingMessageBuffer));
+    }
+}
+
+function handleIncomingMessage(cookie, decryptedMessage) {
+//    servicelog("Decrypted message: " + JSON.stringify(decryptedMessage));
+    if(decryptedMessage.type === "clientStarted") {
+	processClientStarted(cookie); }
+    if(stateIs(cookie, "loggedIn")) {
+	if(decryptedMessage.type === "gainAdminMode") {
+	    processGainAdminMode(cookie, decryptedMessage.content); }
+	if(decryptedMessage.type === "saveAdminData") {
+	    processSaveAdminData(cookie, decryptedMessage.content); }
+	if(decryptedMessage.type === "changeUserPassword") {
+	    processChangeUserPassword(cookie, decryptedMessage.content); }
+	// if nothing here matches, jump to application message handler
+	runCallbacByName("handleApplicationMessage", cookie, decryptedMessage);
     }
 }
 
@@ -149,6 +165,24 @@ function stateIs(cookie, state) {
 
 function setState(cookie, state) {
     cookie.state = state;
+}
+
+function getUserByHashedUserName(hash) {
+    return runCallbacByName("datastorageRead", "users").users.filter(function(u) {
+	return u.hash === hash;
+    });
+}
+
+function getUserPriviliges(user) {
+    if(user.applicationData.priviliges.length === 0) { return []; }
+    if(user.applicationData.priviliges.indexOf("none") > -1) { return []; }
+    return user.applicationData.priviliges;
+}
+
+function userHasPrivilige(privilige, user) {
+    if(user.applicationData.priviliges.length === 0) { return false; }
+    if(user.applicationData.priviliges.indexOf(privilige) < 0) { return false; }
+    return true;
 }
 
 function getNewChallenge() {
@@ -179,7 +213,7 @@ function processUserLogin(cookie, content) {
 	processClientStarted(cookie);
 	return;
     } else {
-	var user = runCallbacByName("getUserByHashedUserName", content.username);
+	var user = getUserByHashedUserName(content.username);
 	if(user.length === 0) {
 	    servicelog("Unknown user login attempt");
 	    processClientStarted(cookie);
@@ -205,7 +239,7 @@ function processLoginResponse(cookie, content) {
 	servicelog("User login OK");
 	setState(cookie, "loggedIn");
 	setStatustoClient(cookie, "Login OK");
-	if(runCallbacByName("getUserPriviliges", cookie.user).length === 0) {
+	if(getUserPriviliges(cookie.user).length === 0) {
 	    // for unpriviliged login, only send logout button and nothing more
 	    sendable = { type: "unpriviligedLogin",
 			 content: { topButtonList: [ { id: 100,
@@ -261,6 +295,228 @@ function createUiInputField(key, value, password) {
     return { itemType: "input", key: key, value: value, password: password };
 }
 
+
+// Anminstration UI panel
+
+function processGainAdminMode(cookie, content) {
+    servicelog("Client #" + cookie.count + " requests Sytem Administration priviliges");
+    if(userHasPrivilige("system-admin", cookie.user)) {
+	servicelog("Granting Sytem Administration priviliges to user " + cookie.user.username);
+	var sendable;
+	var topButtonList =  runCallbacByName("createTopButtonList", cookie, true);
+
+	var items = [];
+	var priviligeList = runCallbacByName("createAdminPanelUserPriviliges");
+	runCallbacByName("datastorageRead", "users").users.forEach(function(u) {
+	    var userPriviliges = [];
+	    priviligeList.forEach(function(p) {
+		userPriviliges.push(createUiCheckBox(p.privilige, userHasPrivilige(p.privilige, u), p.code));
+	    });
+	    items.push([ [ createUiTextNode("username", u.username) ],
+			 [ createUiTextArea("realname", u.realname, 25) ],
+			 [ createUiTextArea("email", u.email, 30) ],
+			 [ createUiTextArea("phone", u.phone, 15) ],
+			 userPriviliges,
+		         [ createUiButton("Vaihda", "changeUserPassword", u.username),
+			   createUiInputField("password", "", true) ] ] )
+	});
+
+	var emptyPriviligeList = [];
+	priviligeList.forEach(function(p) {
+	    emptyPriviligeList.push(createUiCheckBox(p.privilige, false, p.code));
+	});
+	var itemList = { title: "User Admin Data",
+			 frameId: 0,
+			 header: [ { text: "username" }, { text: "realname" }, { text: "email" },
+				   { text: "phone" }, { text: "V / S / Te / Pe / To / A" }, { text: "Vaihda Salasana" } ],
+			 items: items,
+			 newItem: [ [ createUiTextArea("username", "<username>") ],
+				    [ createUiTextArea("realname", "<realname>", 25) ],
+				    [ createUiTextArea("email", "<email>", 30) ],
+				    [ createUiTextArea("phone", "<phone>", 15) ],
+				    emptyPriviligeList,
+				    [ createUiTextNode("password", "") ] ] };
+
+	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
+
+	sendable = { type: "createUiPage",
+		     content: { user: cookie.user.username,
+				priviliges: cookie.user.applicationData.priviliges,
+				topButtonList: topButtonList,
+				frameList: frameList,
+				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveAdminData" },
+					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
+
+	sendCipherTextToClient(cookie, sendable);
+	servicelog("Sent NEW adminData to client #" + cookie.count);
+
+    } else {
+	servicelog("User " + cookie.user.username + " does not have Sytem Administration priviliges!");
+	processClientStarted(cookie);
+    }	
+}
+
+function processSaveAdminData(cookie, data) {
+    servicelog("Client #" + cookie.count + " requests admin data saving.");
+    if(userHasPrivilige("system-admin", cookie.user)) {
+	updateAdminDataFromClient(cookie, data);
+    } else {
+	servicelog("User " + cookie.user.username + " does not have priviliges to edit admin data");
+    }
+    runCallbacByName("processResetToMainState", cookie);
+}
+
+function updateAdminDataFromClient(cookie, userData) {
+    var userList = extractUserListFromInputData(userData);
+    if(userList === null) {
+	runCallbacByName("processResetToMainState", cookie);
+	return;
+    }
+
+    var newUsers = [];
+    var oldUsers = runCallbacByName("datastorageRead", "users").users;
+
+    userList.forEach(function(n) {
+	var flag = true;
+	oldUsers.forEach(function(u) {
+	    if(n.username === u.username) {
+		flag = false;
+		n.password = u.password;
+		newUsers.push(n);
+	    }
+	});
+	if(flag) {
+	    n.password = "";
+	    newUsers.push(n);
+	}
+    });
+
+    if(runCallbacByName("datastorageWrite", "users", { users: newUsers }) === false) {
+	servicelog("User database write failed");
+    } else {
+	servicelog("Updated User database.");
+    }
+}
+
+function processChangeUserPassword(cookie, data) {
+    servicelog("Client #" + cookie.count + " requests user password change.");
+    if(userHasPrivilige("system-admin", cookie.user)) {
+	var passwordChange = extractPasswordChangeFromInputData(data);
+	if(passwordChange === null) {
+	    runCallbacByName("processResetToMainState", cookie);
+	    return;
+	}
+
+	var newUsers = [];
+	runCallbacByName("datastorageRead", "users").users.forEach(function(u) {
+	    if(u.username !== passwordChange.userName) {
+		newUsers.push(u);
+	    } else {
+		newUsers.push({ applicationData: u.applicationData,
+				username: u.username,
+				hash: u.hash,
+				realname: u.realname,
+				email: u.email,
+				phone: u.phone,
+				password: passwordChange.password });
+	    }
+	});
+	if(runCallbacByName("datastorageWrite", "users", { users: newUsers }) === false) {
+	    servicelog("User database write failed");
+	    setStatustoClient(cookie, "Password Change FAILED");
+	} else {
+	    servicelog("Updated password of user [" + JSON.stringify(passwordChange.userName) + "]");
+	    setStatustoClient(cookie, "Password Changed OK");
+	    processGainAdminMode(cookie);
+	    return;
+	}
+    } else {
+	servicelog("User " + cookie.user.username + " does not have priviliges to change passwords");
+    }
+    runCallbacByName("processResetToMainState", cookie);
+}
+
+function extractUserListFromInputData(data) {
+    if(data.items === undefined) {
+	servicelog("inputDataata does not contain items");
+	return null;
+    }
+    if(data.buttonList === undefined) {
+	servicelog("inputData does not contain buttonList");
+	return null;
+    }
+    var userList = [];
+    data.items.forEach(function(i) {
+	i.frame.forEach(function(u) {
+	    var user = { applicationData: { priviliges: [] } };
+	    u.forEach(function(row) {
+		if(row.length === 1) {
+		    if(row[0].key === "username") {
+			if(row[0].text !== undefined) {
+			    user.username = row[0].text;
+			    user.hash = sha1.hash(row[0].text);
+			}
+			if(row[0].value !== undefined) {
+			    user.username = row[0].value;
+			    user.hash = sha1.hash(row[0].value);
+			}
+		    }
+		    if(row[0].key === "realname") { user.realname = row[0].value; }
+		    if(row[0].key === "email") { user.email = row[0].value; }
+		    if(row[0].key === "phone") { user.phone = row[0].value; }
+		} else {
+	    	    row.forEach(function(item) {
+			if(item.key === "view") {
+			    if(item.checked) { user.applicationData.priviliges.push("view"); } }
+			if(item.key === "score-edit") {
+			    if(item.checked) { user.applicationData.priviliges.push("score-edit"); } }
+			if(item.key === "team-edit") {
+			    if(item.checked) { user.applicationData.priviliges.push("team-edit"); } }
+			if(item.key === "player-edit") {
+			    if(item.checked) { user.applicationData.priviliges.push("player-edit"); } }
+			if(item.key === "tournament-edit") {
+			    if(item.checked) { user.applicationData.priviliges.push("tournament-edit"); } }
+			if(item.key === "system-admin") {
+			    if(item.checked) { user.applicationData.priviliges.push("system-admin"); } }
+		    });
+		}
+	    });
+	    userList.push(user);
+	});
+    });
+    return userList;
+}
+
+function extractPasswordChangeFromInputData(data) {
+    if(data.buttonData === undefined) {
+	servicelog("inputData does not contain buttonData");
+	return null;
+    }
+    if(data.items === undefined) {
+	servicelog("inputData does not contain items");
+	return null;
+    }
+    if(data.items[0] === undefined) {
+	servicelog("inputData.items is not an array");
+	return null;
+    }
+    if(data.items[0].frame === undefined) {
+	servicelog("inputData.items does not contain frame");
+	return null;
+    }
+
+    var passwordChange = data.items[0].frame.map(function(u) {
+	if(u[0][0].text === data.buttonData) {
+	    return { userName: u[0][0].text,
+		     password: sha1.hash(u[5][1].value + sha1.hash(u[0][0].text).slice(0,4)) };
+	}
+    }).filter(function(f){return f;})[0];
+    return passwordChange;
+}
+
+
+// Callback to the application specific part handling
+
 var functionList = [];
 
 function setCallback(name, callback) {
@@ -293,9 +549,7 @@ module.exports.createUiButton = createUiButton;
 module.exports.createUiInputField = createUiInputField;
 module.exports.sendCipherTextToClient = sendCipherTextToClient;
 module.exports.servicelog = servicelog;
-module.exports.processClientStarted = processClientStarted;
-module.exports.stateIs = stateIs;
-module.exports.setState = setState;
 module.exports.setStatustoClient = setStatustoClient;
+module.exports.userHasPrivilige = userHasPrivilige;
 module.exports.sha1 = sha1.hash;
 module.exports.aes = Aes.Ctr;
