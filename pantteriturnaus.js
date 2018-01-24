@@ -1,4 +1,4 @@
-var framework = require("./framework");
+var framework = require("./framework/framework.js");
 var fs = require("fs");
 var datastorage = require('./datastorage/datastorage.js');
 
