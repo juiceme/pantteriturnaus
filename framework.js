@@ -469,19 +469,17 @@ function extractUserListFromInputData(data) {
 		    if(row[0].key === "email") { user.email = row[0].value; }
 		    if(row[0].key === "phone") { user.phone = row[0].value; }
 		} else {
+		    var priviligeList = runCallbacByName("createAdminPanelUserPriviliges").map(function(p) {
+			return p.privilige;
+		    }); 
 	    	    row.forEach(function(item) {
-			if(item.key === "view") {
-			    if(item.checked) { user.applicationData.priviliges.push("view"); } }
-			if(item.key === "score-edit") {
-			    if(item.checked) { user.applicationData.priviliges.push("score-edit"); } }
-			if(item.key === "team-edit") {
-			    if(item.checked) { user.applicationData.priviliges.push("team-edit"); } }
-			if(item.key === "player-edit") {
-			    if(item.checked) { user.applicationData.priviliges.push("player-edit"); } }
-			if(item.key === "tournament-edit") {
-			    if(item.checked) { user.applicationData.priviliges.push("tournament-edit"); } }
-			if(item.key === "system-admin") {
-			    if(item.checked) { user.applicationData.priviliges.push("system-admin"); } }
+			priviligeList.forEach(function(p) {
+			    if(item.key === p) {
+				if(item.checked) {
+				    user.applicationData.priviliges.push(p);
+				}
+			    }
+			});
 		    });
 		}
 	    });
