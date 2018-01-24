@@ -185,6 +185,10 @@ function userHasPrivilige(privilige, user) {
     return true;
 }
 
+function getPasswordHash(username, password) {
+    return sha1.hash(password + sha1.hash(username).slice(0,4));
+}
+
 function getNewChallenge() {
     return ("challenge_" + sha1.hash(globalSalt + new Date().getTime().toString()) + "1");
 }
@@ -508,7 +512,7 @@ function extractPasswordChangeFromInputData(data) {
     var passwordChange = data.items[0].frame.map(function(u) {
 	if(u[0][0].text === data.buttonData) {
 	    return { userName: u[0][0].text,
-		     password: sha1.hash(u[5][1].value + sha1.hash(u[0][0].text).slice(0,4)) };
+		     password: getPasswordHash(u[0][0].text, u[5][1].value) };
 	}
     }).filter(function(f){return f;})[0];
     return passwordChange;
@@ -551,5 +555,6 @@ module.exports.sendCipherTextToClient = sendCipherTextToClient;
 module.exports.servicelog = servicelog;
 module.exports.setStatustoClient = setStatustoClient;
 module.exports.userHasPrivilige = userHasPrivilige;
+module.exports.getPasswordHash = getPasswordHash;
 module.exports.sha1 = sha1.hash;
 module.exports.aes = Aes.Ctr;

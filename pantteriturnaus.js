@@ -1271,11 +1271,9 @@ datastorage.initialize("main", { main: { version: databaseVersion,
 					 port: 8080,
 					 siteFullUrl: "http://url.to.pantterilasku/" } });
 datastorage.initialize("users", { users: [ { username: "test",
-					     hash: "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
-					     password: "7e58f6bee079ce2b5c34b23cd340f2105d0e14e2",
-					     applicationData: {
-						 priviliges: ["none"]
-					     },
+					     hash: framework.sha1("test"),
+					     password: framework.getPasswordHash("test", "test"),
+					     applicationData: { priviliges: ["system-admin"] },
 					     realname: "",
 					     email: "",
 					     phone: "" } ] }, true);
@@ -1307,10 +1305,17 @@ if(mainConfig.version < databaseVersion) {
     }
 }
 
+
+// Push callbacks to framework
+
 framework.setCallback("datastorageRead", datastorage.read);
 framework.setCallback("datastorageWrite", datastorage.write);
 framework.setCallback("handleApplicationMessage", handleApplicationMessage);
 framework.setCallback("processResetToMainState", processResetToMainState);
 framework.setCallback("createAdminPanelUserPriviliges", createAdminPanelUserPriviliges);
 framework.setCallback("createTopButtonList", createTopButtonList);
+
+
+// Start the web interface
+
 framework.startUiLoop(mainConfig.port);
