@@ -1,3 +1,6 @@
 [submodule "datastorage"]
 	path = datastorage
 	url = https://github.com/juiceme/datastorage.git
+[submodule "framework"]
+	path = framework
+	url = https://github.com/juiceme/framework.git
