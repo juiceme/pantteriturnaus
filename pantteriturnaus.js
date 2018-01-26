@@ -133,9 +133,7 @@ function sendTournamentMainData(cookie) {
     var frameList = [ { frameType: "fixedListFrame", frame: itemList } ];
 
     sendable = { type: "createUiPage",
-		 content: { user: cookie.user.username,
-			    priviliges: cookie.user.applicationData.priviliges,
-			    topButtonList: topButtonList,
+		 content: { topButtonList: topButtonList,
 			    frameList: frameList } };
 
     framework.sendCipherTextToClient(cookie, sendable);
@@ -208,9 +206,7 @@ function processGetTournamentsDataForEdit(cookie, data) {
 	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
 
 	sendable = { type: "createUiPage",
-		     content: { user: cookie.user.username,
-				priviliges: cookie.user.applicationData.priviliges,
-				topButtonList: topButtonList,
+		     content: { topButtonList: topButtonList,
 				frameList: frameList,
 				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveAllTournamentsData" },
 					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
@@ -294,9 +290,7 @@ function processGetSingleTournamentForEdit(cookie, data) {
 	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
 
 	sendable = { type: "createUiPage",
-		     content: { user: cookie.user.username,
-				priviliges: cookie.user.applicationData.priviliges,
-				topButtonList: topButtonList,
+		     content: { topButtonList: topButtonList,
 				frameList: frameList,
 				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveTournamentGameData", data: tournament.id },
 					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
@@ -390,9 +384,7 @@ function processGetTeamsDataForEdit(cookie, content) {
 	}
 
 	sendable = { type: "createUiPage",
-		     content: { user: cookie.user.username,
-				priviliges: cookie.user.applicationData.priviliges,
-				topButtonList: topButtonList,
+		     content: { topButtonList: topButtonList,
 				frameList: frameList,
 				buttonList: buttonList } };
 
@@ -466,9 +458,7 @@ function processGetSingleTeamForEdit(cookie, data) {
 	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
 
 	sendable = { type: "createUiPage",
-		     content: { user: cookie.user.username,
-				priviliges: cookie.user.applicationData.priviliges,
-				topButtonList: topButtonList,
+		     content: { topButtonList: topButtonList,
 				frameList: frameList,
 				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveSingleTeamData", data: data.buttonData },
 					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
@@ -557,9 +547,7 @@ function sendOneTournamentForScoresEdit(cookie, tournament) {
     var frameList = [ { frameType: "fixedListFrame", frame: itemList } ];
 
     sendable = { type: "createUiPage",
-		 content: { user: cookie.user.username,
-			    priviliges: cookie.user.applicationData.priviliges,
-			    topButtonList: topButtonList,
+		 content: { topButtonList: topButtonList,
 			    frameList: frameList,
 			    buttonList: buttonList } };
 			    
@@ -643,9 +631,7 @@ function sendOneMatchForScoresEdit(cookie, match) {
 		      { frameType: "editListFrame", frame: penaltiesItemList } ];
 
     sendable = { type: "createUiPage",
-		 content: { user: cookie.user.username,
-			    priviliges: cookie.user.applicationData.priviliges,
-			    topButtonList: topButtonList,
+		 content: { topButtonList: topButtonList,
 			    frameList: frameList,
 			    buttonList: [ { id: 501, text: "OK", callbackMessage: "saveMatchScores", data: match.id },
 					  { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
@@ -1270,7 +1256,7 @@ function updateDatabaseVersionTo_3() {
 // datastorage.setLogger(framework.servicelog);
 datastorage.initialize("main", { main: { version: databaseVersion,
 					 port: 8080,
-					 siteFullUrl: "http://url.to.pantterilasku/" } });
+					 siteFullUrl: "http://url.to.pantteriturnaus/" } });
 datastorage.initialize("users", { users: [ { username: "test",
 					     hash: framework.sha1("test"),
 					     password: framework.getPasswordHash("test", "test"),
