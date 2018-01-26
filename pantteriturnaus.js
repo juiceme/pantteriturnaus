@@ -77,24 +77,26 @@ function createTeamList() {
 }
 
 
-// Top button panel, always visible
+// Administration UI panel requires application to provide needed priviliges
 
-function createTopButtonList(cookie, adminRequest) {
-    var topButtonList = [ { id: 101, text: "Kirjaudu Ulos", callbackMessage: "clientStarted" } ];
-    if( framework.userHasPrivilige("team-edit", cookie.user) || framework.userHasPrivilige("player-edit", cookie.user)) {
-	topButtonList.push( { id: 102, text: "Muokkaa Joukkueita", callbackMessage: "getTeamsDataForEdit" } );
-    }
-    if(framework.userHasPrivilige("tournament-edit", cookie.user)) {
-	topButtonList.push( { id: 103, text: "Muokkaa Turnauksia", callbackMessage: "getTournamentsDataForEdit" } );
-    }
-    if(framework.userHasPrivilige("system-admin", cookie.user)) {
-	if(adminRequest) {
-	    topButtonList.push( { id: 104, text: "User Mode", callbackMessage: "resetToMain" } );
-	} else {
-	    topButtonList.push( { id: 104, text: "Admin Mode", callbackMessage: "gainAdminMode" } );
-	}
-    }
-    return topButtonList;
+function createAdminPanelUserPriviliges() {
+    return [ { privilige: "view", code: "v" },
+	     { privilige: "score-edit", code: "se"},
+	     { privilige: "team-edit", code: "te"},
+	     { privilige: "player-edit", code: "pe"},
+	     { privilige: "tournament-edit", code: "to"},
+	     { privilige: "system-admin", code: "a"} ];
+}
+
+
+// Define the top button panel, always visible.
+// The panel automatically contains "Logout" and "Admin Mode" buttons so no need to include those.
+
+function createTopButtonList(cookie) {
+    return [ { button: { text: "Muokkaa Joukkueita", callbackMessage: "getTeamsDataForEdit" },
+	       priviliges: [ "team-edit", "player-edit" ] },
+	     { button: { text: "Muokkaa Turnauksia", callbackMessage: "getTournamentsDataForEdit" },
+	       priviliges: [ "tournament-edit" ] } ];
 }
 
 
@@ -111,7 +113,7 @@ function processResetToMainState(cookie, content) {
 
 function sendTournamentMainData(cookie) {
     var sendable;
-    var topButtonList =  createTopButtonList(cookie, false);
+    var topButtonList = framework.createTopButtons(cookie);
 
     var tournaments = datastorage.read("tournaments").tournaments.map(function(t) {
 	return { id: t.id, name: t.name, locked: t.locked };
@@ -182,7 +184,7 @@ function processGetTournamentsDataForEdit(cookie, data) {
     framework.servicelog("Client #" + cookie.count + " requests tournament data for edit.");
     if(framework.userHasPrivilige("tournament-edit", cookie.user)) {
 	var sendable;
-	var topButtonList =  createTopButtonList(cookie, false);
+	var topButtonList = framework.createTopButtons(cookie);
 	var items = [];
 	datastorage.read("tournaments").tournaments.forEach(function(t) {
 	    items.push([ [ framework.createUiTextNode("id", t.id, 10) ],
@@ -271,7 +273,7 @@ function processGetSingleTournamentForEdit(cookie, data) {
 	    if(t.id === data.buttonData) { return t; }
 	}).filter(function(f){return f;})[0];
 	var sendable;
-	var topButtonList =  createTopButtonList(cookie, false);
+	var topButtonList = framework.createTopButtons(cookie);
 	var items = [];
 	tournament.games.forEach(function(t) {
 	    items.push([ [ framework.createUiTextArea("time", t.time, 20) ],
@@ -345,7 +347,7 @@ function processGetTeamsDataForEdit(cookie, content) {
     framework.servicelog("Client #" + cookie.count + " requests teams edit");
     if( framework.userHasPrivilige("team-edit", cookie.user) || framework.userHasPrivilige("player-edit", cookie.user)) {
 	var sendable;
-	var topButtonList =  createTopButtonList(cookie, false);
+	var topButtonList = framework.createTopButtons(cookie);
 	var items = [];
 	var frameList;
 	var buttonList;
@@ -437,7 +439,7 @@ function processGetSingleTeamForEdit(cookie, data) {
     framework.servicelog("Client #" + cookie.count + " requests team data for editing.");
     if(framework.userHasPrivilige("player-edit", cookie.user)) {
 	var sendable;
-	var topButtonList =  createTopButtonList(cookie, false);
+	var topButtonList = framework.createTopButtons(cookie);
 	var items = [];
 	datastorage.read("teams").teams.forEach(function(t) {
 	    if(t.id === data.buttonData) {
@@ -508,23 +510,11 @@ function updateSingleTeamFromClient(cookie, teamId, data) {
 }
 
 
-// Administration UI panel requires application to provide needed priviliges
-
-function createAdminPanelUserPriviliges() {
-    return [ { privilige: "view", code: "v" },
-	     { privilige: "score-edit", code: "se"},
-	     { privilige: "team-edit", code: "te"},
-	     { privilige: "player-edit", code: "pe"},
-	     { privilige: "tournament-edit", code: "to"},
-	     { privilige: "system-admin", code: "a"} ];
-}
-
-
 // UI panel for selecting the game for statistics edit
 
 function sendOneTournamentForScoresEdit(cookie, tournament) {
     var sendable;
-    var topButtonList =  createTopButtonList(cookie, false);
+    var topButtonList = framework.createTopButtons(cookie);
     var items = [];
     var count = 1;
     tournament.games.forEach(function(t) {
@@ -576,7 +566,7 @@ function processGetOneMatchScoresForEdit(cookie, data) {
 
 function sendOneMatchForScoresEdit(cookie, match) {
     var sendable;
-    var topButtonList =  createTopButtonList(cookie, false);
+    var topButtonList = framework.createTopButtons(cookie);
     var scoreItems = [];
     var penaltyItems = [];
 
