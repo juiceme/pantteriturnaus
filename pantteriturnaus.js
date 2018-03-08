@@ -861,8 +861,10 @@ function createTournamentPositionResults(tournament) {
     });
     positions.forEach(function(t) {
 	t.difference = t.scoresMade - t.scoresLost;
+	t.points = t.wins * 2 + t.evens;
+	t.order = t.points * 100 + t.difference;
     });
-    sort("wins", positions);
+    sort("order", positions);
 
     var tableHeader = "<br><table><tr><th colspan=7>SIJOITUS</th></tr><tr><th>Joukkue</th><th>V</th><th>H</th><th>T</th><th>TM</th><th>PM</th><th>ME</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>";
 
