@@ -123,8 +123,8 @@ function sendTournamentMainData(cookie) {
     tournaments.forEach(function(t) {
 	if(!framework.userHasPrivilige("score-edit", cookie.user)) { t.locked = true; }
 	items.push( [ [ framework.createUiTextNode("name", t.name) ],
-		      [ framework.createUiButton("Tulokset", "getTournamentDataForShow", t.id, framework.userHasPrivilige("view", cookie.user)) ],
-		      [ framework.createUiButton("Muokkaa", "getOneTournamentScoresForEdit", t.id, !t.locked) ] ] );
+		      [ framework.createUiMessageButton("Tulokset", "getTournamentDataForShow", t.id, framework.userHasPrivilige("view", cookie.user)) ],
+		      [ framework.createUiMessageButton("Muokkaa", "getOneTournamentScoresForEdit", t.id, !t.locked) ] ] );
     });
 
     var itemList = { title: "Tournament",
@@ -153,7 +153,7 @@ function processGetTournamentDataForShow(cookie, data) {
     framework.servicelog("Client #" + cookie.count + " requests tournament show: " + tournamentId);
     if(framework.userHasPrivilige("view", cookie.user)) {	
 	var tournmentWebPage = new Buffer(createPreviewHtmlPage(getTournamentDataById(tournamentId)));
-	sendable = { type: "showTournament",
+	sendable = { type: "showHtmlPage",
 		     content: tournmentWebPage.toString("ascii") };
 	framework.sendCipherTextToClient(cookie, sendable);
 	framework.servicelog("Sent tournament html view to client");
@@ -191,7 +191,7 @@ function processGetTournamentsDataForEdit(cookie, data) {
 			 [ framework.createUiTextArea("name", t.name, 30) ],
 			 [ framework.createUiTextArea("outputfile", t.outputFile, 40) ],
 			 [ framework.createUiCheckBox("locked", t.locked, "locked") ], 
-			 [ framework.createUiButton("Muokkaa", "getSingleTournamentForEdit", t.id) ] ]);
+			 [ framework.createUiMessageButton("Muokkaa", "getSingleTournamentForEdit", t.id) ] ]);
 	});
 
 	var itemList = { title: "Tournaments",
@@ -353,9 +353,9 @@ function processGetTeamsDataForEdit(cookie, content) {
 	var buttonList;
 	datastorage.read("teams").teams.forEach(function(t) {
 	    var nameNode = framework.createUiTextNode("name", t.name, 25);
-	    var buttonNode = buttonNode = framework.createUiButton("Muokkaa", "getSingleTeamForEdit", t.id, false);
+	    var buttonNode = buttonNode = framework.createUiMessageButton("Muokkaa", "getSingleTeamForEdit", t.id, false);
 	    if(framework.userHasPrivilige("player-edit", cookie.user)) {
-		buttonNode = framework.createUiButton("Muokkaa", "getSingleTeamForEdit", t.id, true);
+		buttonNode = framework.createUiMessageButton("Muokkaa", "getSingleTeamForEdit", t.id, true);
 	    }
 	    if( framework.userHasPrivilige("team-edit", cookie.user))	{
 		nameNode = framework.createUiTextArea("name", t.name, 25);
@@ -522,7 +522,7 @@ function sendOneTournamentForScoresEdit(cookie, tournament) {
 		      [ framework.createUiTextNode("home", getTeamNameFromId(t.home)) ],
 		      [ framework.createUiTextNode("guest", getTeamNameFromId(t.guest)) ],
 		      [ framework.createUiTextNode("result", t.result) ],
-		      [ framework.createUiButton("Muokkaa", "getOneMatchScoresForEdit", 
+		      [ framework.createUiMessageButton("Muokkaa", "getOneMatchScoresForEdit", 
 				       { id: tournament.id, round: count++ }) ] ] );
     });
 
@@ -1145,6 +1145,7 @@ function updateDatabaseVersionTo_1() {
     } else {
 	framework.servicelog("Updated tournaments database to v.1");
     }
+    var mainConfig = datastorage.read("main").main;
     mainConfig.version = 1;
     if(datastorage.write("main", { main: mainConfig }) === false) {
 	framework.servicelog("Updated main database write failed");
@@ -1180,6 +1181,7 @@ function updateDatabaseVersionTo_2() {
     } else {
 	framework.servicelog("Updated tournaments database to v.2");
     }
+    var mainConfig = datastorage.read("main").main;
     mainConfig.version = 2;
     if(datastorage.write("main", { main: mainConfig }) === false) {
 	framework.servicelog("Updated main database write failed");
@@ -1236,6 +1238,7 @@ function updateDatabaseVersionTo_3() {
     } else {
 	framework.servicelog("Updated tournaments database to v.3");
     }
+    var mainConfig = datastorage.read("main").main;
     mainConfig.version = 3;
     if(datastorage.write("main", { main: mainConfig }) === false) {
 	framework.servicelog("Updated main database write failed");
@@ -1245,42 +1248,37 @@ function updateDatabaseVersionTo_3() {
     }
 }
 
-// datastorage.setLogger(framework.servicelog);
-datastorage.initialize("main", { main: { version: databaseVersion,
-					 port: 8080,
-					 siteFullUrl: "http://url.to.pantteriturnaus/" } });
-datastorage.initialize("users", { users: [ { username: "test",
-					     hash: framework.sha1("test"),
-					     password: framework.getPasswordHash("test", "test"),
-					     applicationData: { priviliges: ["system-admin"] },
-					     realname: "",
-					     email: "",
-					     phone: "" } ] }, true);
-datastorage.initialize("tournaments", { nextId: 1,
-					tournaments: [ ] }, true);
-datastorage.initialize("teams", { nextId: 1,
-				  teams: [ ] }, true);
 
-var mainConfig = datastorage.read("main").main;
+// Initialize application-specific datastorages
 
-if(mainConfig.version === undefined) { mainConfig.version = 0; }
-if(mainConfig.version > databaseVersion) {
-    framework.servicelog("Database version is too high for this program release, please update program.");
-    process.exit(1);
-}
-if(mainConfig.version < databaseVersion) {
-    framework.servicelog("Updating database version to most recent supported by this program release.");
-    if(mainConfig.version === 0) {
-	// update database version from 0 to 1
-	updateDatabaseVersionTo_1();
+function initializeDataStorages() {
+    framework.initializeDataStorages();
+    datastorage.initialize("tournaments", { nextId: 1,
+					    tournaments: [ ] }, true);
+    datastorage.initialize("teams", { nextId: 1,
+				      teams: [ ] }, true);
+
+    var mainConfig = datastorage.read("main").main;
+
+    if(mainConfig.version === undefined) { mainConfig.version = 0; }
+    if(mainConfig.version > databaseVersion) {
+	framework.servicelog("Database version is too high for this program release, please update program.");
+	process.exit(1);
     }
-    if(mainConfig.version === 1) {
-	// update database version from 1 to 2
-	updateDatabaseVersionTo_2();
-    }
-    if(mainConfig.version === 2) {
-	// update database version from 2 to 3
-	updateDatabaseVersionTo_3();
+    if(mainConfig.version < databaseVersion) {
+	framework.servicelog("Updating database version to most recent supported by this program release.");
+	if(mainConfig.version === 0) {
+	    // update database version from 0 to 1
+	    updateDatabaseVersionTo_1();
+	}
+	if(mainConfig.version === 1) {
+	    // update database version from 1 to 2
+	    updateDatabaseVersionTo_2();
+	}
+	if(mainConfig.version === 2) {
+	    // update database version from 2 to 3
+	    updateDatabaseVersionTo_3();
+	}
     }
 }
 
@@ -1289,6 +1287,7 @@ if(mainConfig.version < databaseVersion) {
 
 framework.setCallback("datastorageRead", datastorage.read);
 framework.setCallback("datastorageWrite", datastorage.write);
+framework.setCallback("datastorageInitialize", datastorage.initialize);
 framework.setCallback("handleApplicationMessage", handleApplicationMessage);
 framework.setCallback("processResetToMainState", processResetToMainState);
 framework.setCallback("createAdminPanelUserPriviliges", createAdminPanelUserPriviliges);
@@ -1297,4 +1296,6 @@ framework.setCallback("createTopButtonList", createTopButtonList);
 
 // Start the web interface
 
-framework.startUiLoop(mainConfig.port);
+initializeDataStorages();
+framework.setApplicationName("Example Application");
+framework.startUiLoop();
