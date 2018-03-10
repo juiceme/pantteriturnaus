@@ -152,7 +152,7 @@ function processGetTournamentDataForShow(cookie, data) {
     }
     framework.servicelog("Client #" + cookie.count + " requests tournament show: " + tournamentId);
     if(framework.userHasPrivilige("view", cookie.user)) {	
-	var tournmentWebPage = new Buffer(createPreviewHtmlPage(getTournamentDataById(tournamentId)));
+	var tournmentWebPage = createPreviewHtmlPage(getTournamentDataById(tournamentId));
 	sendable = { type: "showHtmlPage",
 		     content: tournmentWebPage.toString("ascii") };
 	framework.sendCipherTextToClient(cookie, sendable);
