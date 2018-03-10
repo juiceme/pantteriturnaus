@@ -802,6 +802,7 @@ function createTournamentHtmlPages(myTournament) {
 	}
     });
     fs.writeFileSync(myTournament.outputFile + "_toplist" + ".html", createHtmlTopListPage(myTournament));
+    fs.writeFileSync(myTournament.outputFile + "_penaltylist" + ".html", createHtmlPenaltyListPage(myTournament));
     fs.writeFileSync(myTournament.outputFile + "_positions" + ".html", createHtmlPositionsPage(myTournament));
 }
 
@@ -815,8 +816,9 @@ function createPreviewHtmlPage(tournament) {
 	tableBody.push(createSubResultBody(g));
 	tableBody.push("</table>");
     });
-    var topListHeader = "<br><table>><tr><th colspan=2>Toplist</th></tr><tr><th>Pelaaja</th><th>Tehopisteet</th></tr><tr><td></td><td></td></tr>";
-    return header + mainBody + resultsBody + tableBody.join().replace(/,/g, '') + topListHeader + createHtmlTopListBody(tournament) + "</html>"
+    var topListHeader = "<br><table><tr><th colspan=2>Toplist</th></tr><tr><th>Pelaaja</th><th>Tehopisteet</th></tr><tr><td></td><td></td></tr>";
+    var penaltyListHeader = "<br><table><tr><th colspan=2>Penaltylist</th></tr><tr><th>Pelaaja</th><th>Rangaistus</th></tr><tr><td></td><td></td></tr>";
+    return header + mainBody + resultsBody + tableBody.join().replace(/,/g, '') + topListHeader + createHtmlTopListBody(tournament) + penaltyListHeader + createHtmlPenaltyListBody(tournament) + "</html>"
 }
 
 function createHtmlMainResultsPage(tournament) {
@@ -954,7 +956,7 @@ function getGameScoresAsTooltip(scores) {
 
 function createHtmlTopListPage(tournament) {
     var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } </style><table><tr><th>Pelaaja</th><th>Tehopisteet</th></tr><tr><td></td><td></td></tr>";
-    return header + createHtmlTopListBody(tournament) + "</table></html>";
+    return header + createHtmlTopListBody(tournament) + "</html>";
 }
 
 function createHtmlTopListBody(tournament) {
@@ -981,7 +983,22 @@ function createHtmlTopListBody(tournament) {
     topPlayers.forEach(function(p) {
 	tableBody.push("<tr><td>" + p.name + "</td><td>" + p.scores + " + " + p.passes + "</td></tr>");
     });
-    return tableBody.join().replace(/,/g, '');
+    return tableBody.join().replace(/,/g, '') + "</table>";
+}
+
+function createHtmlPenaltyListPage(tournament) {
+    var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } </style><table><tr><th>Pelaaja</th><th>Rangaistus</th></tr><tr><td></td><td></td></tr>";
+    return header + createHtmlPenaltyListBody(tournament) + "</html>";
+}
+
+function createHtmlPenaltyListBody(tournament) {
+    var tableBody = [];
+    tournament.games.forEach(function(g) {
+	g.penalties.forEach(function(p) {
+	    tableBody.push("<tr><td>" + p.player.name + "</td><td>" + p.code + "</td></tr>");
+	});
+    });
+    return tableBody.join().replace(/,/g, '') + "</table>";
 }
 
 var sort = function(prop, arr) {
