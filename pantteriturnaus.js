@@ -322,11 +322,36 @@ function processSaveTournamentGameData(cookie, data) {
 	    if(t.id !== id) {
 		newTournaments.push(t);
 	    } else {
+		var newGameData = [];
+		gameData.forEach(function(r) {
+		    var flag = true;
+		    t.games.forEach(function(s) {
+			if(r.round === s.round) {
+			    flag = false;
+			    newGameData.push({ round: r.round,
+					       home: r.home,
+					       guest: r.guest,
+					       result: s.result,
+					       scores: s.scores,
+					       penalties: s.penalties,
+					       time: r.time });
+			}
+		    });
+		    if(flag) {
+			newGameData.push({ round: r.round,
+					   home: r.home,
+					   guest: r.guest,
+					   result: "-",
+					   scores: [],
+					   penalties: [],
+					   time: r.time });
+		    }
+		});
 		newTournaments.push({ name: t.name,
 				      id: t.id,
 				      outputFile: t.outputFile,
 				      locked: t.locked,
-				      games: gameData });
+				      games: newGameData });
 	    }
 	});
 	if(datastorage.write("tournaments", { nextId: oldTournaments.nextId, tournaments: newTournaments }) === false) {
