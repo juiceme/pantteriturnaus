@@ -971,7 +971,7 @@ function createHtmlTopListBody(tournament) {
 	tournament.games.forEach(function(g) {
 	    g.scores.forEach(function(s) {
 		if(p.name === s.passer.name) { p.passes++; p.key++; }
-		if(p.name === s.scorer.name) { p.scores++; p.key+=10; }
+		if(p.name === s.scorer.name) { p.scores++; p.key++; }
 	    }); 
 	});
     });
