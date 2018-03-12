@@ -883,13 +883,13 @@ function createTournamentPositionResults(tournament) {
     tournament.games.forEach(function(g) {
 	var flag = true;
 	positions.forEach(function(p) { if(p.name === g.home) { flag = false; }});
-	if (flag) {
+	if(flag) {
 	    positions.push( { name: g.home, wins: 0, evens: 0, loses: 0, scoresMade: 0, scoresLost: 0 } );
 	}
     });
     positions.forEach(function(t) {
 	tournament.games.forEach(function(g) {
-	    if ((t.name == g.home) && !g.isFinalGame) {
+	    if((t.name == g.home) && !g.isFinalGame) {
 		if((getScores(g.scores, g.home) !== 0) || (getScores(g.scores, g.guest) !== 0)) {
 		    t.scoresMade += getScores(g.scores, g.home);
 		    t.scoresLost += getScores(g.scores, g.guest);
@@ -898,7 +898,7 @@ function createTournamentPositionResults(tournament) {
 		    if(getScores(g.scores, g.home) < getScores(g.scores, g.guest)) { t.loses++; }
 		}
 	    }
-	    if ((t.name == g.guest) && !g.isFinalGame) {
+	    if((t.name == g.guest) && !g.isFinalGame) {
 		if((getScores(g.scores, g.home) !== 0) || (getScores(g.scores, g.guest) !== 0)) {
 		    t.scoresMade += getScores(g.scores, g.guest);
 		    t.scoresLost += getScores(g.scores, g.home);
@@ -1026,9 +1026,9 @@ function createHtmlPenaltyListBody(tournament) {
 
 var sort = function(prop, arr) {
     arr.sort(function(a, b) {
-        if (a[prop] > b[prop]) {
+        if(a[prop] > b[prop]) {
             return -1;
-        } else if (a[prop] < b[prop]) {
+        } else if(a[prop] < b[prop]) {
             return 1;
         } else {
             return 0;
