@@ -2,7 +2,7 @@ var framework = require("./framework/framework.js");
 var fs = require("fs");
 var datastorage = require('./datastorage/datastorage.js');
 
-var databaseVersion = 3;
+var databaseVersion = 4;
 
 
 // Application specific part starts from here
@@ -278,17 +278,17 @@ function processGetSingleTournamentForEdit(cookie, data) {
 	tournament.games.forEach(function(t) {
 	    items.push([ [ framework.createUiTextArea("time", t.time, 20) ],
 			 [ framework.createUiSelectionList("home", createTeamList(), getTeamNameFromId(t.home)) ],
-			 [ framework.createUiSelectionList("guest", createTeamList(), getTeamNameFromId(t.guest)) ] ]);
+			 [ framework.createUiSelectionList("guest", createTeamList(), getTeamNameFromId(t.guest)) ],
+			 [ framework.createUiCheckBox("final", t.isFinalGame, "final") ] ]);
 	});
-
 	var itemList = { title: tournament.name,
 			 frameId: 0,
-			 header: [ { text: "Time" }, { text: "Home" }, { text: "Guest" } ],
+			 header: [ { text: "Time" }, { text: "Home" }, { text: "Guest" }, { text: "Final" } ],
 			 items: items,
 			 newItem: [ [ framework.createUiTextArea("time", "<time>", 20) ],
 				    [ framework.createUiSelectionList("home", createTeamList(), "") ],
-				    [ framework.createUiSelectionList("guest", createTeamList(), "") ] ] };
-
+				    [ framework.createUiSelectionList("guest", createTeamList(), "") ],
+				    [ framework.createUiCheckBox("final", false, "final") ] ] };
 	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
 
 	sendable = { type: "createUiPage",
@@ -334,7 +334,8 @@ function processSaveTournamentGameData(cookie, data) {
 					       result: s.result,
 					       scores: s.scores,
 					       penalties: s.penalties,
-					       time: r.time });
+					       time: r.time,
+					       isFinalGame: r.isFinalGame });
 			}
 		    });
 		    if(flag) {
@@ -344,7 +345,8 @@ function processSaveTournamentGameData(cookie, data) {
 					   result: "-",
 					   scores: [],
 					   penalties: [],
-					   time: r.time });
+					   time: r.time,
+					   isFinalGame: r.isFinalGame });
 		    }
 		});
 		newTournaments.push({ name: t.name,
@@ -776,7 +778,8 @@ function updateMatchStatisticsFromClient(cookie, match, matchData) {
 				    result: calculateResultFromScores(newStatistics.scores, { home: g.home, guest:g.guest }),
 				    scores: newStatistics.scores,
 				    penalties: newStatistics.penalties,
-				    time: g.time });
+				    time: g.time,
+				    isFinalGame: g.isFinalGame  });
 		}
 	    });
 	    tournament.games = newGames;
@@ -1052,7 +1055,8 @@ function extractGamesDataFromInputData(data) {
 			 guest: getTeamIdFromName(g[2][0].selected),
 			 result: "-",
 			 scores: [],
-			 penalties: [] });
+			 penalties: [],
+			 isFinalGame: g[3][0].checked });
 	});
     });
     return games;
@@ -1290,6 +1294,43 @@ function updateDatabaseVersionTo_3() {
     }
 }
 
+function updateDatabaseVersionTo_4() {
+    var newTournaments = [];
+    var nextId = 1;
+    datastorage.read("tournaments").tournaments.forEach(function(t) {
+	var newGames = [];
+	t.games.forEach(function(g) {
+	    var newScores = [];
+	    newGames.push({ round: g.round,
+			    home: g.home,
+			    guest: g.guest,
+			    result: g.result,
+			    time: g.time,
+			    scores: g.scores,
+			    penalties: g.penalties,
+			    isFinalGame: false });
+	});
+	newTournaments.push({ id: nextId++,
+			      name: t.name,
+			      locked: t.locked,
+			      outputFile: t.outputFile,
+			      games: newGames });
+    });
+    if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
+	framework.servicelog("Updated tournaments database write failed");
+	process.exit(1);
+    } else {
+	framework.servicelog("Updated tournaments database to v.4");
+    }
+    var mainConfig = datastorage.read("main").main;
+    mainConfig.version = 4;
+    if(datastorage.write("main", { main: mainConfig }) === false) {
+	framework.servicelog("Updated main database write failed");
+	process.exit(1);
+    } else {
+	framework.servicelog("Updated main database to v.4");
+    }
+}
 
 // Initialize application-specific datastorages
 
@@ -1320,6 +1361,10 @@ function initializeDataStorages() {
 	if(mainConfig.version === 2) {
 	    // update database version from 2 to 3
 	    updateDatabaseVersionTo_3();
+	}
+	if(mainConfig.version === 3) {
+	    // update database version from 3 to 4
+	    updateDatabaseVersionTo_4();
 	}
     }
 }
