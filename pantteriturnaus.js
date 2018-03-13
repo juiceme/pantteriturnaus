@@ -978,7 +978,7 @@ function createTournamentPositionResults(tournament) {
     var positions = [];
     tournament.games.forEach(function(g) {
 	var flag = true;
-	positions.forEach(function(p) { if(p.name === g.home) { flag = false; }});
+	positions.forEach(function(p) { if((p.name === g.home) || g.isFinalGame) { flag = false; }});
 	if(flag) {
 	    positions.push( { name: g.home, wins: 0, evens: 0, loses: 0, scoresMade: 0, scoresLost: 0 } );
 	}
