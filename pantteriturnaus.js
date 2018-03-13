@@ -90,8 +90,7 @@ function createAdminPanelUserPriviliges() {
 	     { privilige: "score-edit", code: "se"},
 	     { privilige: "team-edit", code: "te"},
 	     { privilige: "player-edit", code: "pe"},
-	     { privilige: "tournament-edit", code: "to"},
-	     { privilige: "system-admin", code: "a"} ];
+	     { privilige: "tournament-edit", code: "to"} ];
 }
 
 
