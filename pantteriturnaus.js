@@ -57,29 +57,48 @@ function getMatchDataById(id, round) {
 }
 
 function getTeamIdFromName(name) {
-    var name = datastorage.read("teams").teams.map(function(t) {
+    var id = datastorage.read("teams").teams.map(function(t) {
 	if(t.name == name) { return t.id; }
     }).filter(function(f) { return f; })[0];
-    return name;
+    return id;
 }
 
 function getTeamNameFromId(id) {
-    var id = datastorage.read("teams").teams.map(function(t) {
+    var name = datastorage.read("teams").teams.map(function(t) {
 	if(t.id == id) { return t.name; }
     }).filter(function(f) { return f; })[0];
-    if(id === undefined) {
+    if(name === undefined) {
 	return "-";
     } else {
-	return id;
+	return name;
     }
 }
 
-function createTeamList() {
+function getAllTeamsList() {
     var teams = [];
     datastorage.read("teams").teams.forEach(function(t) {
 	teams.push(t.name);
     });
     return teams;
+}
+
+function getTournamentTeamList(id) {
+    var teams = [""];
+    datastorage.read("tournaments").tournaments.forEach(function(t) {
+	if(t.id === id) {
+	    t.games.forEach(function(g) {
+		teams.push(g.home);
+		teams.push(g.guest);
+	    });
+	}
+    });
+    return teams.filter(function(elem, pos) {
+	return teams.indexOf(elem) == pos;
+    }).filter(function(f) {
+	return f;
+    }).map(function(t) {
+	return getTeamNameFromId(t);
+    });
 }
 
 
@@ -282,8 +301,8 @@ function processGetSingleTournamentForEdit(cookie, data) {
 	var items = [];
 	tournament.games.forEach(function(t) {
 	    items.push([ [ framework.createUiTextArea("time", t.time, 20) ],
-			 [ framework.createUiSelectionList("home", createTeamList(), getTeamNameFromId(t.home)) ],
-			 [ framework.createUiSelectionList("guest", createTeamList(), getTeamNameFromId(t.guest)) ],
+			 [ framework.createUiSelectionList("home", getAllTeamsList(), getTeamNameFromId(t.home)) ],
+			 [ framework.createUiSelectionList("guest", getAllTeamsList(), getTeamNameFromId(t.guest)) ],
 			 [ framework.createUiCheckBox("final", t.isFinalGame, "final") ] ]);
 	});
 	var itemList = { title: tournament.name,
@@ -291,8 +310,8 @@ function processGetSingleTournamentForEdit(cookie, data) {
 			 header: [ { text: "Time" }, { text: "Home" }, { text: "Guest" }, { text: "Final" } ],
 			 items: items,
 			 newItem: [ [ framework.createUiTextArea("time", "<time>", 20) ],
-				    [ framework.createUiSelectionList("home", createTeamList(), "") ],
-				    [ framework.createUiSelectionList("guest", createTeamList(), "") ],
+				    [ framework.createUiSelectionList("home", getAllTeamsList(), "") ],
+				    [ framework.createUiSelectionList("guest", getAllTeamsList(), "") ],
 				    [ framework.createUiCheckBox("final", false, "final") ] ] };
 	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
 
@@ -621,8 +640,8 @@ function sendOneMatchForScoresEdit(cookie, match) {
     var penaltyItems = [];
     var frameNumber = 0;
     if(match.isFinalGame) {
-	var teamItems = [ [ [ framework.createUiSelectionList("home", createTeamList(), getTeamNameFromId(match.home)) ],
-			    [ framework.createUiSelectionList("guest", createTeamList(), getTeamNameFromId(match.guest)) ],
+	var teamItems = [ [ [ framework.createUiSelectionList("home", getTournamentTeamList(match.id.id), getTeamNameFromId(match.home)) ],
+			    [ framework.createUiSelectionList("guest", getTournamentTeamList(match.id.id), getTeamNameFromId(match.guest)) ],
 			    [ framework.createUiMessageButton("Päivitä", "updateFinalistTeams", { id: match }) ] ] ];
 	var teamItemList = { title: "Finalistit",
 			     frameId: frameNumber++,
