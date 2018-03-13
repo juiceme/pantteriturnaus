@@ -22,6 +22,8 @@ function handleApplicationMessage(cookie, decryptedMessage) {
 	processSaveTournamentGameData(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "getTeamsDataForEdit") {
 	processGetTeamsDataForEdit(cookie, decryptedMessage.content); }
+    if(decryptedMessage.type === "updateFinalistTeams") {
+	processUpdateFinalistTeams(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "resetToMain") {
 	processResetToMainState(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "getOneMatchScoresForEdit") {
@@ -546,36 +548,50 @@ function updateSingleTeamFromClient(cookie, teamId, data) {
 function sendOneTournamentForScoresEdit(cookie, tournament) {
     var sendable;
     var topButtonList = framework.createTopButtons(cookie);
-    var items = [];
+    var games = [];
+    var finals = [];
+    var finalsFlag = false;
     var count = 1;
     tournament.games.forEach(function(t) {
-	var finalGame = "";
 	if(t.isFinalGame) {
-	    finalGame = " [Finaali]";
+	    finalsFlag = true;
+	    finals.push( [ [ framework.createUiTextNode("time", t.time) ],
+			   [ framework.createUiTextNode("home", getTeamNameFromId(t.home)) ],
+			   [ framework.createUiTextNode("guest", getTeamNameFromId(t.guest)) ],
+			   [ framework.createUiTextNode("result", t.result) ],
+			   [ framework.createUiMessageButton("Muokkaa", "getOneMatchScoresForEdit", 
+							     { id: tournament.id, round: count++ }) ] ] );
+	} else {
+	    games.push( [ [ framework.createUiTextNode("time", t.time) ],
+			  [ framework.createUiTextNode("home", getTeamNameFromId(t.home)) ],
+			  [ framework.createUiTextNode("guest", getTeamNameFromId(t.guest)) ],
+			  [ framework.createUiTextNode("result", t.result) ],
+			  [ framework.createUiMessageButton("Muokkaa", "getOneMatchScoresForEdit", 
+							    { id: tournament.id, round: count++ }) ] ] );
 	}
-	items.push( [ [ framework.createUiTextNode("time", t.time + finalGame) ],
-		      [ framework.createUiTextNode("home", getTeamNameFromId(t.home)) ],
-		      [ framework.createUiTextNode("guest", getTeamNameFromId(t.guest)) ],
-		      [ framework.createUiTextNode("result", t.result) ],
-		      [ framework.createUiMessageButton("Muokkaa", "getOneMatchScoresForEdit", 
-				       { id: tournament.id, round: count++ }) ] ] );
     });
-
-    var itemList = { title: tournament.name,
-		     frameId: 0,
-		     header: [ { text: "Aika" }, { text: "Koti" }, { text: "Vieras" },
-			       { text: "Tulos" }, {text: ""} ],
-		     items: items };
-
+    var gamesList = { title: tournament.name,
+		      frameId: 0,
+		      header: [ { text: "Aika" }, { text: "Koti" }, { text: "Vieras" },
+				{ text: "Tulos" }, {text: ""} ],
+		      items: games };
+    if(finalsFlag) {
+	var finalsList = { title: "Finaali",
+			   frameId: 1,
+			   header: [ { text: "Aika" }, { text: "Koti" }, { text: "Vieras" },
+				     { text: "Tulos" }, {text: ""} ],
+			   items: finals };
+	var frameList = [ { frameType: "fixedListFrame", frame: gamesList },
+			  { frameType: "fixedListFrame", frame: finalsList } ];
+    } else {
+	var frameList = [ { frameType: "fixedListFrame", frame: gamesList } ];
+    }
     var buttonList =  [ { id: 501, text: "OK", callbackMessage: "resetToMain" } ];
-
-    var frameList = [ { frameType: "fixedListFrame", frame: itemList } ];
-
     sendable = { type: "createUiPage",
 		 content: { topButtonList: topButtonList,
 			    frameList: frameList,
 			    buttonList: buttonList } };
-			    
+
     framework.sendCipherTextToClient(cookie, sendable);
     framework.servicelog("Sent NEW editTournamentScores to client #" + cookie.count);
 }
@@ -604,6 +620,16 @@ function sendOneMatchForScoresEdit(cookie, match) {
     var topButtonList = framework.createTopButtons(cookie);
     var scoreItems = [];
     var penaltyItems = [];
+    var frameNumber = 0;
+    if(match.isFinalGame) {
+	var teamItems = [ [ [ framework.createUiSelectionList("home", createTeamList(), getTeamNameFromId(match.home)) ],
+			    [ framework.createUiSelectionList("guest", createTeamList(), getTeamNameFromId(match.guest)) ],
+			    [ framework.createUiMessageButton("Päivitä", "updateFinalistTeams", { id: match }) ] ] ];
+	var teamItemList = { title: "Finalistit",
+			     frameId: frameNumber++,
+			     header: [ { text: "Kotijoukkue" }, { text: "Vierasjoukkue" } , { text: "Päivitä joukkueet" } ],
+			     items: teamItems };
+    }
 
     match.scores.forEach(function(s) {
 	scoreItems.push([ [ framework.createUiSelectionList("piste", [ getTeamNameFromId(match.home),
@@ -627,7 +653,7 @@ function sendOneMatchForScoresEdit(cookie, match) {
     });
 
     var scoresItemList = { title: "Pisteet: " + getTeamNameFromId(match.home) + " - " + getTeamNameFromId(match.guest),
-			   frameId: 0,
+			   frameId: frameNumber++,
 			   header: [ { text: "piste" }, { text: "tyyppi" }, { text: "aika" },
 				     { text: "tekijä" }, { text: "syöttäjä" } ],
 			   items: scoreItems,
@@ -639,7 +665,7 @@ function sendOneMatchForScoresEdit(cookie, match) {
 				      [ framework.createUiSelectionList("syöttäjä", createPlayerList(match), "") ] ] };
 
     var penaltiesItemList = { title: "Rangaistukset: " + getTeamNameFromId(match.home) + " - " + getTeamNameFromId(match.guest),
-			      frameId: 1,
+			      frameId: frameNumber++,
 			      header: [ { text: "rangaistus" }, { text: "alkoi" }, { text: "päättyi" }, { text: "koodi" },
 					{ text: "pituus" }, { text: "pelaaja" } ],
 			      items: penaltyItems,
@@ -651,9 +677,14 @@ function sendOneMatchForScoresEdit(cookie, match) {
 					 [ framework.createUiSelectionList("pituus", createPenaltyTimes(), "") ],
 					 [ framework.createUiSelectionList("pelaaja", createPlayerList(match), "") ] ] };
 
-//    var frameList = [ { frameType: "editListFrame", frame: scoresItemList } ];
-    var frameList = [ { frameType: "editListFrame", frame: scoresItemList },
-		      { frameType: "editListFrame", frame: penaltiesItemList } ];
+    if(match.isFinalGame) {
+	var frameList = [ { frameType: "fixedListFrame", frame: teamItemList },
+			  { frameType: "editListFrame", frame: scoresItemList },
+			  { frameType: "editListFrame", frame: penaltiesItemList } ];
+    } else {
+	var frameList = [ { frameType: "editListFrame", frame: scoresItemList },
+			  { frameType: "editListFrame", frame: penaltiesItemList } ];
+    }
 
     sendable = { type: "createUiPage",
 		 content: { topButtonList: topButtonList,
@@ -663,6 +694,53 @@ function sendOneMatchForScoresEdit(cookie, match) {
 
     framework.sendCipherTextToClient(cookie, sendable);
     framework.servicelog("Sent NEW editMatchScores to client #" + cookie.count);
+}
+
+function processUpdateFinalistTeams(cookie, data) {
+    framework.servicelog("Client #" + cookie.count + " requests updating finalist data.");
+    if(framework.userHasPrivilige("score-edit", cookie.user)) {
+	var tournamentId = data.buttonData.id.id.id;
+	var tournamentRound = data.buttonData.id.id.round;
+	var oldTournaments = datastorage.read("tournaments");
+	var newTournaments = [];
+	oldTournaments.tournaments.forEach(function(t) {
+	    if(t.id !== tournamentId) {
+		newTournaments.push(t);
+	    } else {
+		var tournament = { name: t.name,
+				   id: t.id,
+				   locked: t.locked,
+				   outputFile: t.outputFile };
+		var newGames = [];
+		t.games.forEach(function(g) {
+		    if(g.round !== tournamentRound) {
+			newGames.push(g);
+		    } else {
+			newGames.push({ round: tournamentRound,
+					home: getTeamIdFromName(data.items[0].frame[0][0][0].selected),
+					guest: getTeamIdFromName(data.items[0].frame[0][1][0].selected),
+					result: g.result,
+					scores: g.scores,
+					penalties: g.penalties,
+					time: g.time,
+					isFinalGame: g.isFinalGame });
+		    }
+		});
+		tournament.games = newGames;
+		newTournaments.push(tournament);
+	    }
+	});
+	if(datastorage.write("tournaments", { nextId: oldTournaments.nextId, tournaments: newTournaments }) === false) {
+	    framework.servicelog("Tournament database write failed");
+	} else {
+	    createTournamentHtmlPages(getTournamentDataById(tournamentId));
+	    framework.servicelog("Updated tournament database.");
+	}
+	sendOneMatchForScoresEdit(cookie, getMatchDataById(tournamentId, tournamentRound));
+    } else {
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to update finalist data");
+	sendTournamentMainData(cookie);
+    }
 }
 
 function createPlayerList(match) {
@@ -774,7 +852,7 @@ function updateMatchStatisticsFromClient(cookie, match, matchData) {
 		if(g.round !== match.round) {
 		    newGames.push(g);
 		} else {
-		    var newStatistics = extractMatchStatisticsFromInputData(matchData);
+		    var newStatistics = extractMatchStatisticsFromInputData(g.isFinalGame, matchData);
 		    if(newStatistics === null) {
 			sendTournamentMainData(cookie);
 			return;
@@ -1126,14 +1204,20 @@ function extractSingleTeamDataFromInputData(data) {
     return players;
 }
 
-function extractMatchStatisticsFromInputData(data) {
+function extractMatchStatisticsFromInputData(isFinalGame, data) {
     if(inputItemsFailVerification(data)) {
 	return null;
+    }
+    var scoreFrameNumber = 0;
+    var penaltyFrameNumber = 1;
+    if(isFinalGame) {
+	scoreFrameNumber = 1;
+	penaltyFrameNumber = 2;
     }
     var scores = [];
     var penalties = [];
     data.items.forEach(function(i) {
-	if(i.frameId === 0) {
+	if(i.frameId === scoreFrameNumber) {
 	    i.frame.forEach(function(m) {
 		var scorer = { name: m[3][0].selected.slice(0, m[3][0].selected.indexOf(' / ')),
 			       number: m[3][0].selected.slice(m[3][0].selected.indexOf(' / ') + 3, m[3][0].selected.length) };
@@ -1146,7 +1230,7 @@ function extractMatchStatisticsFromInputData(data) {
 			      passer: passer });
 	    });
 	}
-	if(i.frameId === 1) {
+	if(i.frameId === penaltyFrameNumber) {
 	    i.frame.forEach(function(m) {
 		var person = { name: m[5][0].selected.slice(0, m[5][0].selected.indexOf(' / ')),
 			       number: m[5][0].selected.slice(m[5][0].selected.indexOf(' / ') + 3, m[5][0].selected.length) };
