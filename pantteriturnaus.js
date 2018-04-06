@@ -2,7 +2,7 @@ var framework = require("./framework/framework.js");
 var fs = require("fs");
 var datastorage = require('./datastorage/datastorage.js');
 
-var databaseVersion = 4;
+var databaseVersion = 5;
 
 
 // Application specific part starts from here
@@ -1454,6 +1454,49 @@ function updateDatabaseVersionTo_4() {
     }
 }
 
+function updateDatabaseVersionTo_5() {
+    var newTeams = [];
+    var newPlayers = [];
+    var nextId = 1;
+    var teamsNextId = datastorage.read("teams").nextId;
+    datastorage.read("teams").teams.forEach(function(t) {
+	var teamPlayers = [];
+	t.players.forEach(function(p) {
+	    newPlayers.push({ id: nextId,
+			      name: p.name,
+			      number: p.number,
+			      team: t.name,
+			      role: "" });
+	    teamPlayers.push(nextId++);
+	});
+	newTeams.push({ id: t.id,
+			name: t.name,
+			tag: t.name,
+			players: teamPlayers });
+    });
+    if(datastorage.write("players", { nextId: nextId, players: newPlayers }) === false) {
+	framework.servicelog("Updating players database failed");
+	process.exit(1);
+    } else {
+	framework.servicelog("Updated players database to v.5");
+    }
+    if(datastorage.write("teams", { nextId: teamsNextId, teams: newTeams }) === false) {
+	framework.servicelog("Updating teams database failed");
+	process.exit(1);
+    } else {
+	framework.servicelog("Updated teams database to v.5");
+    }
+    var mainConfig = datastorage.read("main").main;
+    mainConfig.version = 5;
+    if(datastorage.write("main", { main: mainConfig }) === false) {
+	framework.servicelog("Updating main database failed");
+	process.exit(1);
+    } else {
+	framework.servicelog("Updated main database to v.5");
+    }
+}
+
+
 // Initialize application-specific datastorages
 
 function initializeDataStorages() {
@@ -1462,6 +1505,8 @@ function initializeDataStorages() {
 					    tournaments: [ ] }, true);
     datastorage.initialize("teams", { nextId: 1,
 				      teams: [ ] }, true);
+    datastorage.initialize("players", { nextId: 1,
+					players: [ ] }, true);
 
     var mainConfig = datastorage.read("main").main;
 
@@ -1487,6 +1532,10 @@ function initializeDataStorages() {
 	if(mainConfig.version === 3) {
 	    // update database version from 3 to 4
 	    updateDatabaseVersionTo_4();
+	}
+	if(mainConfig.version === 4) {
+	    // update database version from 4 to 5
+	    updateDatabaseVersionTo_5();
 	}
     }
 }
