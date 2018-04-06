@@ -20,6 +20,8 @@ function handleApplicationMessage(cookie, decryptedMessage) {
 	processGetSingleTournamentForEdit(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "saveTournamentGameData") {
 	processSaveTournamentGameData(cookie, decryptedMessage.content); }
+    if(decryptedMessage.type === "getPlayersDataForEdit") {
+	processGetPlayersDataForEdit(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "getTeamsDataForEdit") {
 	processGetTeamsDataForEdit(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "updateFinalistTeams") {
@@ -30,6 +32,8 @@ function handleApplicationMessage(cookie, decryptedMessage) {
 	processGetOneMatchScoresForEdit(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "saveMatchScores") {
 	processSaveMatchScores(cookie, decryptedMessage.content); }
+    if(decryptedMessage.type === "saveAllPlayersData") {
+	processSaveAllPlayersData(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "saveAllTeamsData") {
 	processSaveAllTeamsData(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "getSingleTeamForEdit") {
@@ -74,12 +78,26 @@ function getTeamNameFromId(id) {
     }
 }
 
+function getTeamTagFromId(id) {
+    var tag = datastorage.read("teams").teams.map(function(t) {
+	if(t.id == id) { return t.tag; }
+    }).filter(function(f) { return f; })[0];
+    if(tag === undefined) {
+	return "-";
+    } else {
+	return tag;
+    }
+}
+
 function getAllTeamsList() {
     var teams = [];
     datastorage.read("teams").teams.forEach(function(t) {
 	teams.push(t.name);
     });
     return teams;
+}
+
+function getPlayerFromId(id) {
 }
 
 function getTournamentTeamList(id) {
@@ -117,7 +135,9 @@ function createAdminPanelUserPriviliges() {
 // The panel automatically contains "Logout" and "Admin Mode" buttons so no need to include those.
 
 function createTopButtonList(cookie) {
-    return [ { button: { text: "Muokkaa Joukkueita", callbackMessage: "getTeamsDataForEdit" },
+    return [ { button: { text: "Muokkaa Pelaajia", callbackMessage: "getPlayersDataForEdit" },
+	       priviliges: [ "player-edit" ] },
+	     { button: { text: "Muokkaa Joukkueita", callbackMessage: "getTeamsDataForEdit" },
 	       priviliges: [ "team-edit", "player-edit" ] },
 	     { button: { text: "Muokkaa Turnauksia", callbackMessage: "getTournamentsDataForEdit" },
 	       priviliges: [ "tournament-edit" ] } ];
@@ -392,37 +412,76 @@ function processSaveTournamentGameData(cookie, data) {
 }
 
 
+// Main player edit UI, list of players
+
+function processGetPlayersDataForEdit(cookie, content) {
+    if(framework.userHasPrivilige("player-edit", cookie.user)) {
+	var topButtonList = framework.createTopButtons(cookie);
+	var items = [];
+	datastorage.read("players").players.forEach(function(p) {
+	    items.push([ [ framework.createUiInputField("name", p.name, 15, false) ],
+			 [ framework.createUiInputField("number", p.number, 2, false) ],
+			 [ framework.createUiInputField("role", p.role, 2, false) ],
+			 [ framework.createUiInputField("team", p.team, 10, false) ] ]);
+	});
+	var itemList = { title: "Players",
+			 frameId: 0,
+			 header: [ { text: "Name" }, { text: "Number" }, { text: "Role" }, { text: "Team" } ],
+			 items: items,
+			 newItem: [ [ framework.createUiInputField("name", "<name>", 15, false) ],
+				    [ framework.createUiInputField("number", "<x>", 2, false) ],
+				    [ framework.createUiInputField("role", "", 2, false) ],
+				    [ framework.createUiInputField("team", "", 10, false) ] ] };
+	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
+	var buttonList = [ { id: 501, text: "OK", callbackMessage: "saveAllPlayersData" },
+			   { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ];
+	var sendable = { type: "createUiPage",
+			 content: { topButtonList: topButtonList,
+				    frameList: frameList,
+				    buttonList: buttonList } };
+	framework.sendCipherTextToClient(cookie, sendable);
+	framework.servicelog("Sent NEW playersData to client #" + cookie.count);
+    } else {
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit players");
+	sendTournamentMainData(cookie);
+    }
+}
+
+function processSaveAllPlayersData(cookie, content) {
+}
+
+
 // Main team edit UI, list of teams
 
 function processGetTeamsDataForEdit(cookie, content) {
     framework.servicelog("Client #" + cookie.count + " requests teams edit");
-    if( framework.userHasPrivilige("team-edit", cookie.user) || framework.userHasPrivilige("player-edit", cookie.user)) {
-	var sendable;
+    if(framework.userHasPrivilige("team-edit", cookie.user) || framework.userHasPrivilige("player-edit", cookie.user)) {
 	var topButtonList = framework.createTopButtons(cookie);
 	var items = [];
 	var frameList;
 	var buttonList;
 	datastorage.read("teams").teams.forEach(function(t) {
+	    var tagNode = framework.createUiTextNode("tag", t.tag, 25);
 	    var nameNode = framework.createUiTextNode("name", t.name, 25);
 	    var buttonNode = buttonNode = framework.createUiMessageButton("Muokkaa", "getSingleTeamForEdit", t.id, false);
 	    if(framework.userHasPrivilige("player-edit", cookie.user)) {
 		buttonNode = framework.createUiMessageButton("Muokkaa", "getSingleTeamForEdit", t.id, true);
 	    }
 	    if( framework.userHasPrivilige("team-edit", cookie.user))	{
-		nameNode = framework.createUiTextArea("name", t.name, 25);
+		tagNode = framework.createUiInputField("tag",  t.tag, 15, false);
+		nameNode = framework.createUiInputField("name",  t.name, 15, false);
 	    }
-	    items.push([ [ framework.createUiTextNode("id", t.id, 10) ],
+	    items.push([ [ tagNode ],
 			 [ nameNode ],
 			 [ buttonNode ] ]);
 	});
-
-	if( framework.userHasPrivilige("team-edit", cookie.user)) {
+	if(framework.userHasPrivilige("team-edit", cookie.user)) {
 	    var itemList = { title: "Teams",
 			     frameId: 0,
-			     header: [ { text: "Id" }, { text: "Name" }, { text: "" } ],
+			     header: [ { text: "Team ID" }, { text: "Team name" }, { text: "" } ],
 			     items: items,
-			     newItem: [ [ framework.createUiTextNode("id", "", 10) ],
-					[ framework.createUiTextArea("name", "<name>", 25) ],
+			     newItem: [	[ framework.createUiInputField("tag", "<name>", 15, false) ],
+					[ framework.createUiInputField("name", "<name>", 15, false) ],
 					[ framework.createUiTextNode("", "", 25) ] ] };
 	    frameList = [ { frameType: "editListFrame", frame: itemList } ];
 	    buttonList = [ { id: 501, text: "OK", callbackMessage: "saveAllTeamsData" },
@@ -430,17 +489,15 @@ function processGetTeamsDataForEdit(cookie, content) {
 	} else {
 	    var itemList = { title: "Teams",
 			     frameId: 0,
-			     header: [ { text: "Id" }, { text: "Name" }, { text: "" } ],
+			     header: [ { text: "Team ID" }, { text: "Team name" }, { text: "" } ],
 			     items: items };
 	    frameList = [ { frameType: "fixedListFrame", frame: itemList } ];
 	    buttonList = [ { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ];
 	}
-
-	sendable = { type: "createUiPage",
-		     content: { topButtonList: topButtonList,
-				frameList: frameList,
-				buttonList: buttonList } };
-
+	var sendable = { type: "createUiPage",
+			 content: { topButtonList: topButtonList,
+				    frameList: frameList,
+				    buttonList: buttonList } };
 	framework.sendCipherTextToClient(cookie, sendable);
 	framework.servicelog("Sent NEW teamsData to client #" + cookie.count);
     } else {
@@ -488,33 +545,31 @@ function processSaveAllTeamsData(cookie, data) {
 
 function processGetSingleTeamForEdit(cookie, data) {
     framework.servicelog("Client #" + cookie.count + " requests team data for editing.");
+
+    framework.servicelog(JSON.stringify(data));
+
     if(framework.userHasPrivilige("player-edit", cookie.user)) {
-	var sendable;
 	var topButtonList = framework.createTopButtons(cookie);
 	var items = [];
 	datastorage.read("teams").teams.forEach(function(t) {
 	    if(t.id === data.buttonData) {
 		t.players.forEach(function(p) {
-		    items.push([ [ framework.createUiTextArea("name", p.name, 25) ],
-				 [ framework.createUiTextArea("number", p.number, 25) ] ]);
+		    items.push([ [ createAllPlayersSelector(p.id) ] ]);
 		});
 	    }
 	});
-
-	var itemList = { title: getTeamNameFromId(data.buttonData),
+	var itemList = { title: getTeamTagFromId(data.buttonData),
 			 frameId: 0,
-			 header: [ { text: "Name" }, { text: "Number" } ],
+			 header: [ { text: "Player" } ],
 			 items: items,
-			 newItem: [ [ framework.createUiTextArea("name", "<name>", 25) ],
-				    [ framework.createUiTextArea("number", "<x>", 25) ] ] };
+			 newItem: [ [ createAllPlayersSelector("") ] ] };
 
 	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
-
-	sendable = { type: "createUiPage",
-		     content: { topButtonList: topButtonList,
-				frameList: frameList,
-				buttonList: [ { id: 501, text: "OK", callbackMessage: "saveSingleTeamData", data: data.buttonData },
-					      { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
+	var sendable = { type: "createUiPage",
+			 content: { topButtonList: topButtonList,
+				    frameList: frameList,
+				    buttonList: [ { id: 501, text: "OK", callbackMessage: "saveSingleTeamData", data: data.buttonData },
+						  { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
 
 	framework.sendCipherTextToClient(cookie, sendable);
 	framework.servicelog("Sent NEW teamData to client #" + cookie.count);
@@ -522,6 +577,17 @@ function processGetSingleTeamForEdit(cookie, data) {
 	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit players");
 	sendTournamentMainData(cookie);
     }
+}
+
+function createAllPlayersSelector(id) {
+    var players = [];
+    var defaultPlayer = "";
+    datastorage.read("players").players.forEach(function(p) {
+	if(p.id === id) { defaultPlayer = p.team + " / " + p.name + " / " + p.number; }
+	players.push(p.team + " / " + p.name + " / " + p.number);
+    });
+
+    return framework.createUiSelectionList("player", players, defaultPlayer);
 }
 
 function processSaveSingleTeamData(cookie, data) {
