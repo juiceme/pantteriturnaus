@@ -1308,7 +1308,7 @@ function updateDatabaseVersionTo_1() {
 			      games: newGames });
     });
     if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
-	framework.servicelog("Updated tournaments database write failed");
+	framework.servicelog("Updating tournaments database failed");
 	process.exit(1);
     } else {
 	framework.servicelog("Updated tournaments database to v.1");
@@ -1316,7 +1316,7 @@ function updateDatabaseVersionTo_1() {
     var mainConfig = datastorage.read("main").main;
     mainConfig.version = 1;
     if(datastorage.write("main", { main: mainConfig }) === false) {
-	framework.servicelog("Updated main database write failed");
+	framework.servicelog("Updating main database failed");
 	process.exit(1);
     } else {
 	framework.servicelog("Updated main database to v.1");
@@ -1344,7 +1344,7 @@ function updateDatabaseVersionTo_2() {
 			      games: newGames });
     });
     if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
-	framework.servicelog("Updated tournaments database write failed");
+	framework.servicelog("Updating tournaments database failed");
 	process.exit(1);
     } else {
 	framework.servicelog("Updated tournaments database to v.2");
@@ -1352,7 +1352,7 @@ function updateDatabaseVersionTo_2() {
     var mainConfig = datastorage.read("main").main;
     mainConfig.version = 2;
     if(datastorage.write("main", { main: mainConfig }) === false) {
-	framework.servicelog("Updated main database write failed");
+	framework.servicelog("Updating main database failed");
 	process.exit(1);
     } else {
 	framework.servicelog("Updated main database to v.2");
@@ -1401,7 +1401,7 @@ function updateDatabaseVersionTo_3() {
 			      games: newGames });
     });
     if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
-	framework.servicelog("Updated tournaments database write failed");
+	framework.servicelog("Updating tournaments database failed");
 	process.exit(1);
     } else {
 	framework.servicelog("Updated tournaments database to v.3");
@@ -1409,7 +1409,7 @@ function updateDatabaseVersionTo_3() {
     var mainConfig = datastorage.read("main").main;
     mainConfig.version = 3;
     if(datastorage.write("main", { main: mainConfig }) === false) {
-	framework.servicelog("Updated main database write failed");
+	framework.servicelog("Updating main database failed");
 	process.exit(1);
     } else {
 	framework.servicelog("Updated main database to v.3");
@@ -1439,7 +1439,7 @@ function updateDatabaseVersionTo_4() {
 			      games: newGames });
     });
     if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
-	framework.servicelog("Updated tournaments database write failed");
+	framework.servicelog("Updating tournaments database failed");
 	process.exit(1);
     } else {
 	framework.servicelog("Updated tournaments database to v.4");
@@ -1447,7 +1447,7 @@ function updateDatabaseVersionTo_4() {
     var mainConfig = datastorage.read("main").main;
     mainConfig.version = 4;
     if(datastorage.write("main", { main: mainConfig }) === false) {
-	framework.servicelog("Updated main database write failed");
+	framework.servicelog("Updating main database failed");
 	process.exit(1);
     } else {
 	framework.servicelog("Updated main database to v.4");
