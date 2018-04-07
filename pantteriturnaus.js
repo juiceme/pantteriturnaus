@@ -97,6 +97,19 @@ function getAllTeamsList() {
     return teams;
 }
 
+function getPlayerIdByNameAndNumber(name, number) {
+    var id = datastorage.read("players").players.map(function(p) {
+	if((p.name === name) && (p.number === number)) {
+	    return p.id;
+	}
+    }).filter(function(f) { return f; })[0];
+    if(id === undefined) {
+	return "";
+    } else {
+	return id;
+    }
+}
+
 function getPlayerFromId(id) {
 }
 
@@ -1523,8 +1536,10 @@ function updateDatabaseVersionTo_4() {
 function updateDatabaseVersionTo_5() {
     var newTeams = [];
     var newPlayers = [];
+    var newTournaments = [];
     var nextId = 1;
     var teamsNextId = datastorage.read("teams").nextId;
+    var tournamentsNextId = datastorage.read("teams").nextId;
     datastorage.read("teams").teams.forEach(function(t) {
 	var teamPlayers = [];
 	t.players.forEach(function(p) {
@@ -1551,6 +1566,47 @@ function updateDatabaseVersionTo_5() {
 	process.exit(1);
     } else {
 	framework.servicelog("Updated teams database to v.5");
+    }
+    datastorage.read("tournaments").tournaments.forEach(function(t) {
+	var newGames = [];
+	t.games.forEach(function(g) {
+	    var newScores = [];
+	    g.scores.forEach(function(s) {
+		newScores.push({ point: s.point,
+				 type: s.type,
+				 time: s.time,
+				 scorer: getPlayerIdByNameAndNumber(s.scorer.name, s.scorer.number),
+				 passer: getPlayerIdByNameAndNumber(s.passer.name, s.passer.number) });
+	    });
+	    var newPenalties = [];
+	    g.penalties.forEach(function(p) {
+		newPenalties.push({ penalty: p.penalty,
+				    starttime: p.starttime,
+				    endtime: p.endtime,
+				    code: p.code,
+				    length: p.length,
+				    player: getPlayerIdByNameAndNumber(p.player.name, p.player.number) });
+	    });
+	    newGames.push({ round: g.round,
+			    home: g.home,
+			    guest: g.guest,
+			    result: g.result,
+			    time: g.time,
+			    scores: newScores,
+			    penalties: newPenalties,
+			    isFinalGame: g.isFinalGame });
+	});
+	newTournaments.push({ name: t.name,
+			      id: t.id,
+			      locked: t.locked,
+			      outputFile: t.outputFile,
+			      games: newGames });
+    });
+    if(datastorage.write("tournaments", { nextId: tournamentsNextId, tournaments: newTournaments }) === false) {
+	framework.servicelog("Updating tournaments database failed");
+	process.exit(1);
+    } else {
+	framework.servicelog("Updated tournaments database to v.5");
     }
     var mainConfig = datastorage.read("main").main;
     mainConfig.version = 5;
