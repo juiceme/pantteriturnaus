@@ -1089,17 +1089,21 @@ function createHtmlTopListBody(tournament) {
     allPlayers.forEach(function(p) {
 	tournament.games.forEach(function(g) {
 	    g.scores.forEach(function(s) {
-		if(p.name === s.passer.name) { p.passes++; p.key++; }
-		if(p.name === s.scorer.name) { p.scores++; p.key++; }
+		if(p.name === s.passer.name) { p.passes++; p.key = p.key + 100; }
+		if(p.name === s.scorer.name) { p.scores++; p.key = p.key + 101; }
 	    }); 
 	});
     });
     var topPlayers = allPlayers.filter(function(p) {
 	if((p.passes > 0) || (p.scores > 0)) { return p; }
     });
-    sort("key", topPlayers);
+    sort("name", topPlayers);
+    var filteredPlayers = topPlayers.filter(function(item, pos, ary) {
+        return !pos || item.name != ary[pos - 1].name;
+    });
+    sort("key", filteredPlayers);
     var tableBody = [];
-    topPlayers.forEach(function(p) {
+    filteredPlayers.forEach(function(p) {
 	tableBody.push("<tr><td>" + p.name + "</td><td>" + p.scores + " + " + p.passes + "</td></tr>");
     });
     return tableBody.join().replace(/,/g, '') + "</table>";
