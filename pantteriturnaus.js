@@ -71,22 +71,16 @@ function getTeamNameFromId(id) {
     var name = datastorage.read("teams").teams.map(function(t) {
 	if(t.id == id) { return t.name; }
     }).filter(function(f) { return f; })[0];
-    if(name === undefined) {
-	return "-";
-    } else {
-	return name;
-    }
+    if(name === undefined) { return "-"; }
+    else { return name; }
 }
 
 function getTeamTagFromId(id) {
     var tag = datastorage.read("teams").teams.map(function(t) {
 	if(t.id == id) { return t.tag; }
     }).filter(function(f) { return f; })[0];
-    if(tag === undefined) {
-	return "-";
-    } else {
-	return tag;
-    }
+    if(tag === undefined) { return "-"; }
+    else { return tag; }
 }
 
 function getAllTeamsList() {
@@ -97,17 +91,12 @@ function getAllTeamsList() {
     return teams;
 }
 
-function getPlayerIdByNameAndNumber(name, number) {
+function getPlayerIdByName(name) {
     var id = datastorage.read("players").players.map(function(p) {
-	if((p.name === name) && (p.number === number)) {
-	    return p.id;
-	}
+	if(p.name === name) { return p.id; }
     }).filter(function(f) { return f; })[0];
-    if(id === undefined) {
-	return "";
-    } else {
-	return id;
-    }
+    if(id === undefined) { return ""; }
+    else { return id; }
 }
 
 function getPlayerFromId(id) {
@@ -1535,32 +1524,43 @@ function updateDatabaseVersionTo_4() {
 
 function updateDatabaseVersionTo_5() {
     var newTeams = [];
+    var allPlayers = [];
     var newPlayers = [];
     var newTournaments = [];
-    var nextId = 1;
+    var playersNextId = 1;
     var teamsNextId = datastorage.read("teams").nextId;
     var tournamentsNextId = datastorage.read("teams").nextId;
     datastorage.read("teams").teams.forEach(function(t) {
-	var teamPlayers = [];
 	t.players.forEach(function(p) {
-	    newPlayers.push({ id: nextId,
+	    allPlayers.push({ id: playersNextId++,
 			      name: p.name,
 			      number: p.number,
 			      team: t.name,
 			      role: "" });
-	    teamPlayers.push(nextId++);
+	});
+    });
+    sort("name", allPlayers);
+    newPlayers = allPlayers.filter(function(item, pos, ary) {
+        return !pos || item.name != ary[pos - 1].name;
+    });
+    if(datastorage.write("players", { nextId: playersNextId, players: newPlayers }) === false) {
+	framework.servicelog("Updating players database failed");
+	process.exit(1);
+    } else {
+	framework.servicelog("Updated players database to v.5");
+    }
+    datastorage.read("teams").teams.forEach(function(t) {
+	var teamPlayers = [];
+	t.players.forEach(function(p) {
+	    newPlayers.forEach(function(n) {
+		if(p.name === n.name) { teamPlayers.push(n.id); }
+		});
 	});
 	newTeams.push({ id: t.id,
 			name: t.name,
 			tag: t.name,
 			players: teamPlayers });
     });
-    if(datastorage.write("players", { nextId: nextId, players: newPlayers }) === false) {
-	framework.servicelog("Updating players database failed");
-	process.exit(1);
-    } else {
-	framework.servicelog("Updated players database to v.5");
-    }
     if(datastorage.write("teams", { nextId: teamsNextId, teams: newTeams }) === false) {
 	framework.servicelog("Updating teams database failed");
 	process.exit(1);
@@ -1575,8 +1575,8 @@ function updateDatabaseVersionTo_5() {
 		newScores.push({ point: s.point,
 				 type: s.type,
 				 time: s.time,
-				 scorer: getPlayerIdByNameAndNumber(s.scorer.name, s.scorer.number),
-				 passer: getPlayerIdByNameAndNumber(s.passer.name, s.passer.number) });
+				 scorer: getPlayerIdByName(s.scorer.name),
+				 passer: getPlayerIdByName(s.passer.name) });
 	    });
 	    var newPenalties = [];
 	    g.penalties.forEach(function(p) {
@@ -1585,7 +1585,7 @@ function updateDatabaseVersionTo_5() {
 				    endtime: p.endtime,
 				    code: p.code,
 				    length: p.length,
-				    player: getPlayerIdByNameAndNumber(p.player.name, p.player.number) });
+				    player: getPlayerIdByName(p.player.name) });
 	    });
 	    newGames.push({ round: g.round,
 			    home: g.home,
