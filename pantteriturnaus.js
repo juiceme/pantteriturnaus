@@ -419,13 +419,21 @@ function processSaveTournamentGameData(cookie, data) {
 function processGetPlayersDataForEdit(cookie, content) {
     if(framework.userHasPrivilige("player-edit", cookie.user)) {
 	var topButtonList = framework.createTopButtons(cookie);
-	var items = [];
-	datastorage.read("players").players.forEach(function(p) {
-	    items.push([ [ framework.createUiInputField("name", p.name, 15, false) ],
-			 [ framework.createUiInputField("number", p.number, 2, false) ],
-			 [ framework.createUiInputField("role", p.role, 2, false) ],
-			 [ framework.createUiInputField("team", p.team, 10, false) ] ]);
+	var playerItems = [];
+	var HeaderItems = [ [ [ framework.createUiMessageButton("Sort", "getPlayersDataForEdit", "name", true) ],
+			      [ framework.createUiMessageButton("Sort", "getPlayersDataForEdit", "number", true) ],
+			      [ framework.createUiMessageButton("Sort", "getPlayersDataForEdit", "role", true) ],
+			      [ framework.createUiMessageButton("Sort", "getPlayersDataForEdit", "team", true) ] ] ];
+	var players = datastorage.read("players").players;
+	if(content.buttonData === undefined) { content.buttonData = "name"; }
+	sortAscending(content.buttonData, players);
+	players.forEach(function(p) {
+	    playerItems.push([ [ framework.createUiInputField(p.id, p.name, 15, false) ],
+			       [ framework.createUiInputField("number", p.number, 2, false) ],
+			       [ framework.createUiInputField("role", p.role, 2, false) ],
+			       [ framework.createUiInputField("team", p.team, 10, false) ] ]);
 	});
+	var items = HeaderItems.concat(playerItems);
 	var itemList = { title: "Players",
 			 frameId: 0,
 			 header: [ { text: "Name" }, { text: "Number" }, { text: "Role" }, { text: "Team" } ],
@@ -450,6 +458,28 @@ function processGetPlayersDataForEdit(cookie, content) {
 }
 
 function processSaveAllPlayersData(cookie, content) {
+    if(framework.userHasPrivilige("player-edit", cookie.user)) {
+	var newPlayers = [];
+	var nextId = datastorage.read("players").nextId;
+	content.items[0].frame.forEach(function(p) {
+	    var id = p[0][0].key;
+	    if(p[0][0].key === "name") { id = nextId++; }
+	    newPlayers.push({ id: id,
+			      name: p[0][0].value,
+			      number: p[1][0].value,
+			      role: p[2][0].value,
+			      team: p[3][0].value });
+	});
+	if(datastorage.write("players", { nextId: nextId, players: newPlayers }) === false) {
+	    framework.servicelog("Players database write failed");
+	} else {
+	    framework.servicelog("Updated players database");
+	}
+    } else {
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to save player data");
+	sendTournamentMainData(cookie);
+    }
+    sendTournamentMainData(cookie);
 }
 
 
@@ -1078,7 +1108,7 @@ function createTournamentPositionResults(tournament) {
 	t.points = t.wins * 2 + t.evens;
 	t.order = t.points * 100 + t.difference;
     });
-    sort("order", positions);
+    sortDescending("order", positions);
 
     var tableHeader = "<br><table><tr><th colspan=7>SIJOITUS</th></tr><tr><th>Joukkue</th><th>V</th><th>H</th><th>T</th><th>TM</th><th>PM</th><th>ME</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>";
 
@@ -1165,7 +1195,7 @@ function createHtmlTopListBody(tournament) {
     var topPlayers = allPlayers.filter(function(p) {
 	if((p.passes > 0) || (p.scores > 0)) { return p; }
     });
-    sort("key", topPlayers);
+    sortAscending("key", topPlayers);
     var tableBody = [];
     topPlayers.forEach(function(p) {
 	tableBody.push("<tr><td>" + p.name + "</td><td>" + p.scores + " + " + p.passes + "</td></tr>");
@@ -1188,8 +1218,20 @@ function createHtmlPenaltyListBody(tournament) {
     return tableBody.join().replace(/,/g, '') + "</table>";
 }
 
-var sort = function(prop, arr) {
+var sortAscending = function(prop, arr) {
     arr.sort(function(a, b) {
+        if(a[prop] < b[prop]) {
+            return -1;
+        } else if(a[prop] > b[prop]) {
+            return 1;
+        } else {
+            return 0;
+        }
+    });
+};
+
+var sortDescending = function(prop, arr) {
+    arr.sorth(function(a, b) {
         if(a[prop] > b[prop]) {
             return -1;
         } else if(a[prop] < b[prop]) {
@@ -1539,7 +1581,7 @@ function updateDatabaseVersionTo_5() {
 			      role: "" });
 	});
     });
-    sort("name", allPlayers);
+    sortAscending("name", allPlayers);
     newPlayers = allPlayers.filter(function(item, pos, ary) {
         return !pos || item.name != ary[pos - 1].name;
     });
