@@ -175,7 +175,9 @@ function sendTournamentMainData(cookie) {
 
     var itemList = { title: "Tournament",
 		     frameId: 0,
-		     header: [ { text: "" }, { text: "" }, { text: "" } ],
+		     header: [ [ [ framework.createUiHtmlCell("", "") ],
+				 [ framework.createUiHtmlCell("", "") ],
+				 [ framework.createUiHtmlCell("", "") ] ] ],
 		     items: items };
 
     var frameList = [ { frameType: "fixedListFrame", frame: itemList } ];
@@ -242,8 +244,11 @@ function processGetTournamentsDataForEdit(cookie, data) {
 
 	var itemList = { title: "Tournaments",
 			 frameId: 0,
-			 header: [ { text: "Id" }, { text: "Name" }, { text: "Outputfile" },
-				   { text: "Locked" },  { text: "Edit" }],
+			 header: [ [ [ framework.createUiHtmlCell("", "<b>Id</b>") ],
+				     [ framework.createUiHtmlCell("", "<b>Name</b>") ],
+				     [ framework.createUiHtmlCell("", "<b>OutputFile</b>") ],
+				     [ framework.createUiHtmlCell("", "<b>Locked</b>") ],
+				     [ framework.createUiHtmlCell("", "<b>Edit</b>") ] ] ],
 			 items: items,
 			 newItem: [ [ framework.createUiTextNode("id", "", 10) ],
 				    [ framework.createUiTextArea("name", "<name>", 30) ],
@@ -329,7 +334,10 @@ function processGetSingleTournamentForEdit(cookie, data) {
 	});
 	var itemList = { title: tournament.name,
 			 frameId: 0,
-			 header: [ { text: "Time" }, { text: "Home" }, { text: "Guest" }, { text: "Final" } ],
+			 header: [ [ [ framework.createUiHtmlCell("", "<b>Time</b>") ],
+				     [ framework.createUiHtmlCell("", "<b>Home</b>") ],
+				     [ framework.createUiHtmlCell("", "<b>Gest</b>") ],
+				     [ framework.createUiHtmlCell("", "<b>Final</b>") ] ] ],
 			 items: items,
 			 newItem: [ [ framework.createUiTextArea("time", "<time>", 20) ],
 				    [ framework.createUiSelectionList("home", getAllTeamsList(), "") ],
@@ -419,24 +427,23 @@ function processSaveTournamentGameData(cookie, data) {
 function processGetPlayersDataForEdit(cookie, content) {
     if(framework.userHasPrivilige("player-edit", cookie.user)) {
 	var topButtonList = framework.createTopButtons(cookie);
-	var playerItems = [];
-	var HeaderItems = [ [ [ framework.createUiMessageButton("Sort", "getPlayersDataForEdit", "name", true) ],
-			      [ framework.createUiMessageButton("Sort", "getPlayersDataForEdit", "number", true) ],
-			      [ framework.createUiMessageButton("Sort", "getPlayersDataForEdit", "role", true) ],
-			      [ framework.createUiMessageButton("Sort", "getPlayersDataForEdit", "team", true) ] ] ];
+	var items = [];
 	var players = datastorage.read("players").players;
 	if(content.buttonData === undefined) { content.buttonData = "name"; }
 	sortAscending(content.buttonData, players);
 	players.forEach(function(p) {
-	    playerItems.push([ [ framework.createUiInputField(p.id, p.name, 15, false) ],
-			       [ framework.createUiInputField("number", p.number, 2, false) ],
-			       [ framework.createUiInputField("role", p.role, 2, false) ],
-			       [ framework.createUiInputField("team", p.team, 10, false) ] ]);
+	    items.push([ [ framework.createUiInputField(p.id, p.name, 15, false) ],
+			 [ framework.createUiInputField("number", p.number, 2, false) ],
+			 [ framework.createUiInputField("role", p.role, 2, false) ],
+			 [ framework.createUiInputField("team", p.team, 10, false) ] ]);
 	});
-	var items = HeaderItems.concat(playerItems);
 	var itemList = { title: "Players",
 			 frameId: 0,
-			 header: [ { text: "Name" }, { text: "Number" }, { text: "Role" }, { text: "Team" } ],
+			 header: [ [ [ framework.createUiHtmlCell("", "") ],
+				     [ framework.createUiMessageButton("Sort by Name", "getPlayersDataForEdit", "name", true) ],
+				     [ framework.createUiMessageButton("Sort by Number", "getPlayersDataForEdit", "number", true) ],
+				     [ framework.createUiMessageButton("Sort by Role", "getPlayersDataForEdit", "role", true) ],
+				     [ framework.createUiMessageButton("Sort by Team", "getPlayersDataForEdit", "team", true) ] ] ],
 			 items: items,
 			 newItem: [ [ framework.createUiInputField("name", "<name>", 15, false) ],
 				    [ framework.createUiInputField("number", "<x>", 2, false) ],
@@ -510,7 +517,9 @@ function processGetTeamsDataForEdit(cookie, content) {
 	if(framework.userHasPrivilige("team-edit", cookie.user)) {
 	    var itemList = { title: "Teams",
 			     frameId: 0,
-			     header: [ { text: "Team ID" }, { text: "Team name" }, { text: "" } ],
+			     header: [ [ [ framework.createUiHtmlCell("", "<b>Team ID</b>") ],
+					 [ framework.createUiHtmlCell("", "<b>Team Name</b>") ],
+					 [ framework.createUiHtmlCell("", "") ] ] ],
 			     items: items,
 			     newItem: [	[ framework.createUiInputField("tag", "<name>", 15, false) ],
 					[ framework.createUiInputField("name", "<name>", 15, false) ],
@@ -521,7 +530,9 @@ function processGetTeamsDataForEdit(cookie, content) {
 	} else {
 	    var itemList = { title: "Teams",
 			     frameId: 0,
-			     header: [ { text: "Team ID" }, { text: "Team name" }, { text: "" } ],
+			     header: [ [ [ framework.createUiHtmlCell("", "<b>Team ID</b>") ],
+					 [ framework.createUiHtmlCell("", "<b>Team Name</b>") ],
+					 [ framework.createUiHtmlCell("", "") ] ] ],
 			     items: items };
 	    frameList = [ { frameType: "fixedListFrame", frame: itemList } ];
 	    buttonList = [ { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ];
@@ -592,7 +603,7 @@ function processGetSingleTeamForEdit(cookie, data) {
 	});
 	var itemList = { title: getTeamTagFromId(data.buttonData),
 			 frameId: 0,
-			 header: [ { text: "Player" } ],
+			 header: [ [ [ framework.createUiHtmlCell("", "<b>Player</b>") ] ] ],
 			 items: items,
 			 newItem: [ [ createAllPlayersSelector("") ] ] };
 
@@ -688,14 +699,20 @@ function sendOneTournamentForScoresEdit(cookie, tournament) {
     });
     var gamesList = { title: tournament.name,
 		      frameId: 0,
-		      header: [ { text: "Aika" }, { text: "Koti" }, { text: "Vieras" },
-				{ text: "Tulos" }, {text: ""} ],
+		      header: [ [ [ framework.createUiHtmlCell("", "<b>Aika</b>") ],
+				  [ framework.createUiHtmlCell("", "<b>Koto</b>") ],
+				  [ framework.createUiHtmlCell("", "<b>Vieras</b>") ],
+				  [ framework.createUiHtmlCell("", "<b>Tulos</b>") ],
+				  [ framework.createUiHtmlCell("", "") ] ] ],
 		      items: games };
     if(finalsFlag) {
 	var finalsList = { title: "Finaali",
 			   frameId: 1,
-			   header: [ { text: "Aika" }, { text: "Koti" }, { text: "Vieras" },
-				     { text: "Tulos" }, {text: ""} ],
+			   header: [ [ [ framework.createUiHtmlCell("", "<b>Aika</b>") ],
+				       [ framework.createUiHtmlCell("", "<b>Koto</b>") ],
+				       [ framework.createUiHtmlCell("", "<b>Vieras</b>") ],
+				       [ framework.createUiHtmlCell("", "<b>Tulos</b>") ],
+				       [ framework.createUiHtmlCell("", "") ] ] ],
 			   items: finals };
 	var frameList = [ { frameType: "fixedListFrame", frame: gamesList },
 			  { frameType: "fixedListFrame", frame: finalsList } ];
@@ -743,7 +760,9 @@ function sendOneMatchForScoresEdit(cookie, match) {
 			    [ framework.createUiMessageButton("Päivitä", "updateFinalistTeams", { id: match }) ] ] ];
 	var teamItemList = { title: "Finalistit",
 			     frameId: frameNumber++,
-			     header: [ { text: "Kotijoukkue" }, { text: "Vierasjoukkue" } , { text: "Päivitä joukkueet" } ],
+			     header: [ [ [ framework.createUiHtmlCell("", "<b>Kotijoukkue</b>") ],
+					 [ framework.createUiHtmlCell("", "<b>Vierasjoukkue</b>") ],
+					 [ framework.createUiHtmlCell("", "<b>Päivitä joukkueet</b>") ] ] ],
 			     items: teamItems };
     }
 
@@ -770,8 +789,11 @@ function sendOneMatchForScoresEdit(cookie, match) {
 
     var scoresItemList = { title: "Pisteet: " + getTeamNameFromId(match.home) + " - " + getTeamNameFromId(match.guest),
 			   frameId: frameNumber++,
-			   header: [ { text: "piste" }, { text: "tyyppi" }, { text: "aika" },
-				     { text: "tekijä" }, { text: "syöttäjä" } ],
+			   header: [ [ [ framework.createUiHtmlCell("", "<b>piste</b>") ],
+				       [ framework.createUiHtmlCell("", "<b>tyyppi</b>") ],
+				       [ framework.createUiHtmlCell("", "<b>aika</b>") ],
+				       [ framework.createUiHtmlCell("", "<b>tekijä</b>") ],
+				       [ framework.createUiHtmlCell("", "<b>syöttäjä</b>") ] ] ],
 			   items: scoreItems,
 			   newItem: [ [ framework.createUiSelectionList("piste", [ getTeamNameFromId(match.home),
 									 getTeamNameFromId(match.guest) ], "" ) ],
@@ -782,8 +804,12 @@ function sendOneMatchForScoresEdit(cookie, match) {
 
     var penaltiesItemList = { title: "Rangaistukset: " + getTeamNameFromId(match.home) + " - " + getTeamNameFromId(match.guest),
 			      frameId: frameNumber++,
-			      header: [ { text: "rangaistus" }, { text: "alkoi" }, { text: "päättyi" }, { text: "koodi" },
-					{ text: "pituus" }, { text: "pelaaja" } ],
+			      header: [ [ [ framework.createUiHtmlCell("", "<b>rangaistus</b>") ],
+					  [ framework.createUiHtmlCell("", "<b><alkoi/b>") ],
+					  [ framework.createUiHtmlCell("", "<b></päättyib>") ],
+					  [ framework.createUiHtmlCell("", "<b>koodi</b>") ],
+					  [ framework.createUiHtmlCell("", "<b>pituus</b>") ],
+					  [ framework.createUiHtmlCell("", "<b>pelaaja</b>") ] ] ],
 			      items: penaltyItems,
 			      newItem: [ [ framework.createUiSelectionList("rangaistus", [ getTeamNameFromId(match.home),
 										 getTeamNameFromId(match.guest) ], "" ) ],
