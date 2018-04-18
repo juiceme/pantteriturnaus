@@ -67,6 +67,13 @@ function getTeamIdFromName(name) {
     return id;
 }
 
+function getTeamIdFromTag(tag) {
+    var id = datastorage.read("teams").teams.map(function(t) {
+	if(t.tag == tag) { return t.id; }
+    }).filter(function(f) { return f; })[0];
+    return id;
+}
+
 function getTeamNameFromId(id) {
     var name = datastorage.read("teams").teams.map(function(t) {
 	if(t.id == id) { return t.name; }
@@ -79,14 +86,22 @@ function getTeamTagFromId(id) {
     var tag = datastorage.read("teams").teams.map(function(t) {
 	if(t.id == id) { return t.tag; }
     }).filter(function(f) { return f; })[0];
+    if(taǵ === undefined) { return "-"; }
+    else { return tag; }
+}
+
+function getTeamTagFromId(id) {
+    var tag = datastorage.read("teams").teams.map(function(t) {
+	if(t.id == id) { return t.tag; }
+    }).filter(function(f) { return f; })[0];
     if(tag === undefined) { return "-"; }
     else { return tag; }
 }
 
-function getAllTeamsList() {
+function getAllTeamsTagList() {
     var teams = [];
     datastorage.read("teams").teams.forEach(function(t) {
-	teams.push(t.name);
+	teams.push(t.tag);
     });
     return teams;
 }
@@ -99,7 +114,20 @@ function getPlayerIdByName(name) {
     else { return id; }
 }
 
-function getPlayerFromId(id) {
+function getPlayerIdByNameAndNumber(name, number) {
+    var id = datastorage.read("players").players.map(function(p) {
+	if((p.name === name) && (p.number === number )) { return p.id; }
+    }).filter(function(f) { return f; })[0];
+    if(id === undefined) { return ""; }
+    else { return id; }
+}
+
+function getPlayerNameById(id) {
+    var name = datastorage.read("players").players.map(function(p) {
+	if(p.id === id) { return p.name; }
+    }).filter(function(f) { return f; })[0];
+    if(name === undefined) { return ""; }
+    else { return name; }
 }
 
 function getTournamentTeamList(id) {
@@ -236,8 +264,8 @@ function processGetTournamentsDataForEdit(cookie, data) {
 	var items = [];
 	datastorage.read("tournaments").tournaments.forEach(function(t) {
 	    items.push([ [ framework.createUiTextNode("id", t.id, 10) ],
-			 [ framework.createUiTextArea("name", t.name, 30) ],
-			 [ framework.createUiTextArea("outputfile", t.outputFile, 40) ],
+			 [ framework.createUiInputField("name", t.name, 20, false) ],
+			 [ framework.createUiInputField("outputfile", t.outputFile, 30, false) ],
 			 [ framework.createUiCheckBox("locked", t.locked, "locked") ], 
 			 [ framework.createUiMessageButton("Muokkaa", "getSingleTournamentForEdit", t.id) ] ]);
 	});
@@ -252,8 +280,8 @@ function processGetTournamentsDataForEdit(cookie, data) {
 				     [ framework.createUiHtmlCell("", "<b>Edit</b>") ] ] ],
 			 items: items,
 			 newItem: [ [ framework.createUiTextNode("id", "", 10) ],
-				    [ framework.createUiTextArea("name", "<name>", 30) ],
-				    [ framework.createUiTextArea("outputfile", "<outputfile>", 40) ],
+				    [ framework.createUiInputField("name", "<name>", 20, false) ],
+				    [ framework.createUiInputField("outputfile", "<outputfile>", 30, false) ],
 				    [ framework.createUiCheckBox("locked", false, "locked") ],
 				    [ framework.createUiTextNode("", "", 25) ] ] };
 
@@ -328,9 +356,9 @@ function processGetSingleTournamentForEdit(cookie, data) {
 	var topButtonList = framework.createTopButtons(cookie);
 	var items = [];
 	tournament.games.forEach(function(t) {
-	    items.push([ [ framework.createUiTextArea("time", t.time, 20) ],
-			 [ framework.createUiSelectionList("home", getAllTeamsList(), getTeamNameFromId(t.home)) ],
-			 [ framework.createUiSelectionList("guest", getAllTeamsList(), getTeamNameFromId(t.guest)) ],
+	    items.push([ [ framework.createUiInputField("time", t.time, 5, false) ],
+			 [ framework.createUiSelectionList("home", getAllTeamsTagList(), getTeamTagFromId(t.home)) ],
+			 [ framework.createUiSelectionList("guest", getAllTeamsTagList(), getTeamTagFromId(t.guest)) ],
 			 [ framework.createUiCheckBox("final", t.isFinalGame, "final") ] ]);
 	});
 	var itemList = { title: tournament.name,
@@ -341,9 +369,9 @@ function processGetSingleTournamentForEdit(cookie, data) {
 				     [ framework.createUiHtmlCell("", "<b>Guest</b>") ],
 				     [ framework.createUiHtmlCell("", "<b>Final</b>") ] ] ],
 			 items: items,
-			 newItem: [ [ framework.createUiTextArea("time", "<time>", 20) ],
-				    [ framework.createUiSelectionList("home", getAllTeamsList(), "") ],
-				    [ framework.createUiSelectionList("guest", getAllTeamsList(), "") ],
+			 newItem: [ [ framework.createUiInputField("time", "<time>", 5, false) ],
+				    [ framework.createUiSelectionList("home", getAllTeamsTagList(), "") ],
+				    [ framework.createUiSelectionList("guest", getAllTeamsTagList(), "") ],
 				    [ framework.createUiCheckBox("final", false, "final") ] ] };
 	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
 
@@ -771,28 +799,23 @@ function sendOneMatchForScoresEdit(cookie, match) {
 					 [ framework.createUiHtmlCell("", "<b>Päivitä joukkueet</b>") ] ] ],
 			     items: teamItems };
     }
-
     match.scores.forEach(function(s) {
-	scoreItems.push([ [ framework.createUiSelectionList("piste", [ getTeamNameFromId(match.home),
-								       getTeamNameFromId(match.guest) ],
-							    getTeamNameFromId(s.point), true, true, "console.log(1);") ],
+	scoreItems.push([ [ framework.createUiSelectionList("piste", [ getTeamNameFromId(match.home), getTeamNameFromId(match.guest) ],
+							    getTeamNameFromId(s.point)) ],
 			  [ framework.createUiSelectionList("tyyppi", createScoreTypes(), s.type) ],
-			  [ framework.createUiTextArea("aika", s.time) ],
-			  [ framework.createUiSelectionList("tekijä", createPlayerList(match), createPlayer(s.scorer)) ],
-			  [ framework.createUiSelectionList("syöttäjä", createPlayerList(match), createPlayer(s.passer)) ] ]);
+			  [ framework.createUiInputField("aika", s.time, 5, false) ],
+			  [ framework.createUiSelectionList("tekijä", createPlayerList(match), createMatchPlayer(match, s.scorer)) ],
+			  [ framework.createUiSelectionList("syöttäjä", createPlayerList(match), createMatchPlayer(match, s.passer)) ] ]);
     });
-
     match.penalties.forEach(function(p) {
-	penaltyItems.push([ [ framework.createUiSelectionList("rangaistus", [ getTeamNameFromId(match.home),
-									      getTeamNameFromId(match.guest) ],
-							      getTeamNameFromId(p.penalty), true, true, "console.log(1);") ],
-			    [ framework.createUiTextArea("aloitusaika", p.starttime) ],
-			    [ framework.createUiTextArea("lopetusaika", p.endtime) ],
+	penaltyItems.push([ [ framework.createUiSelectionList("rangaistus", [ getTeamNameFromId(match.home), getTeamNameFromId(match.guest) ],
+							      getTeamNameFromId(p.penalty)) ],
+			    [ framework.createUiInputField("aloitusaika", p.starttime, 5, false) ],
+			    [ framework.createUiInputField("lopetusaika", p.endtime, 5, false) ],
 			    [ framework.createUiSelectionList("koodi", createPenaltyCodes(), p.code) ],
 			    [ framework.createUiSelectionList("pituus", createPenaltyTimes(), p.length) ],
-			    [ framework.createUiSelectionList("pelaaja", createPlayerList(match), createPlayer(p.player)) ] ]);
+			    [ framework.createUiSelectionList("pelaaja", createPlayerList(match), createMatchPlayer(match, p.player)) ] ]);
     });
-
     var scoresItemList = { title: "Pisteet: " + getTeamNameFromId(match.home) + " - " + getTeamNameFromId(match.guest),
 			   frameId: frameNumber++,
 			   header: [ [ [ framework.createUiHtmlCell("", "") ],
@@ -803,10 +826,9 @@ function sendOneMatchForScoresEdit(cookie, match) {
 				       [ framework.createUiHtmlCell("", "<b>syöttäjä</b>") ] ] ],
 			   items: scoreItems,
 			   newItem: [ [ framework.createUiSelectionList("piste", [ getTeamNameFromId(match.home),
-										   getTeamNameFromId(match.guest) ], "", 
-									true, true, "console.log(1);" ) ],
+										   getTeamNameFromId(match.guest) ], "") ],
 				      [ framework.createUiSelectionList("tyyppi", createScoreTypes(), "") ],
-				      [ framework.createUiTextArea("aika", "") ],
+				      [ framework.createUiInputField("aika", "", 5, false) ],
 				      [ framework.createUiSelectionList("tekijä", createPlayerList(match), "") ],
 				      [ framework.createUiSelectionList("syöttäjä", createPlayerList(match), "") ] ] };
 
@@ -822,8 +844,8 @@ function sendOneMatchForScoresEdit(cookie, match) {
 			      items: penaltyItems,
 			      newItem: [ [ framework.createUiSelectionList("rangaistus", [ getTeamNameFromId(match.home),
 											   getTeamNameFromId(match.guest) ], "" ) ],
-					 [ framework.createUiTextArea("aloitusaika", "") ],
-					 [ framework.createUiTextArea("lopetusaika", "") ],
+					 [ framework.createUiInputField("aloitusaika", "", 5, false) ],
+					 [ framework.createUiInputField("lopetusaika", "", 5, false) ],
 					 [ framework.createUiSelectionList("koodi", createPenaltyCodes(), "") ],
 					 [ framework.createUiSelectionList("pituus", createPenaltyTimes(), "") ],
 					 [ framework.createUiSelectionList("pelaaja", createPlayerList(match), "") ] ] };
@@ -895,20 +917,55 @@ function processUpdateFinalistTeams(cookie, data) {
 }
 
 function createPlayerList(match) {
-    var players = [];
+    var players = datastorage.read("players").players;
+    var homePlayers = [];
+    var guestPlayers = [];
+    var homeTeam = "";
+    var guestTeam = "";
     datastorage.read("teams").teams.forEach(function(t) {
-	if((t.id == match.home) || (t.id == match.guest)) {
-	    t.players.forEach(function(p) {
-		players.push(p.name + " / " + p.number);
+	if(t.id == match.home) {
+	    homeTeam = t.name;
+	    t.players.forEach(function(id) {
+		players.forEach(function(p) {
+		    if(id === p.id) { homePlayers.push(p); }
+		});
+	    });
+	}
+	if(t.id == match.guest) {
+	    guestTeam = t.name;
+	    t.players.forEach(function(id) {
+		players.forEach(function(p) {
+		    if(id === p.id) { guestPlayers.push(p); }
+		});
 	    });
 	}
     });
-
-    return players;
+    sortAscending("name", homePlayers);
+    sortAscending("name", guestPlayers);
+    var teamPlayers = [];
+    homePlayers.forEach(function(p) {
+	teamPlayers.push(homeTeam + " | " + p.name + " (" + p.number + ")");
+    });
+    guestPlayers.forEach(function(p) {
+	teamPlayers.push(guestTeam + " | " + p.name + " (" + p.number + ")");
+    });
+    return teamPlayers;
 }
 
-function createPlayer(tuple) {
-    return tuple.name + " / " + tuple.number;
+function createMatchPlayer(match, id) {
+    var matchPlayer = "";
+    var team = "";
+    datastorage.read("teams").teams.forEach(function(t) {
+	if((t.id === match.home) || (t.id === match.guest)) {
+	    t.players.forEach(function(p) {
+		if(p === id) { team = t.name; }		
+	    });
+	}
+    });
+    datastorage.read("players").players.forEach(function(p) {
+	if(id === p.id) { matchPlayer = team + " | " + p.name + " (" + p.number + ")"; }	
+    });
+    return matchPlayer;
 }
 
 function createScoreTypes() {
@@ -1008,7 +1065,6 @@ function updateMatchStatisticsFromClient(cookie, match, matchData) {
 			sendTournamentMainData(cookie);
 			return;
 		    }
-
 		    newGames.push({ round: match.round,
 				    home: g.home,
 				    guest: g.guest,
@@ -1144,7 +1200,6 @@ function createTournamentPositionResults(tournament) {
 	t.order = t.points * 100 + t.difference;
     });
     sortDescending("order", positions);
-
     var tableHeader = "<br><table><tr><th colspan=7>SIJOITUS</th></tr><tr><th>Joukkue</th><th>V</th><th>H</th><th>T</th><th>TM</th><th>PM</th><th>ME</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>";
 
     var tableBody = [];
@@ -1176,12 +1231,12 @@ function createSubResultBody(game) {
 	var row = "";
 	if((s.type === "M") || (s.type === "YV") || (s.type === "AV") ||
 	   (s.type === "TV") || (s.type === "SR") || (s.type === "TM")) {
-	    if(s.scorer.name !== undefined) { scorer = s.scorer.name; }
-	    if(s.passer.name !== undefined) { passer = s.passer.name; }
+	    scorer = getPlayerNameById(s.scorer);
+	    passer = getPlayerNameById(s.passer);
 	    row = "Maali</td><td>" + scorer + "</td><td>" + passer;
 	}
 	if(s.type === "RL") {
-	    if(s.scorer.name !== undefined) { scorer = s.scorer.name; }
+	    scorer = getPlayerNameById(s.scorer);
 	    row = "Rangaistuslaukaus</td><td>" + scorer + "</td><td>";
 	}
 	if(s.type === "OM") {
@@ -1212,25 +1267,22 @@ function createHtmlTopListPage(tournament) {
 }
 
 function createHtmlTopListBody(tournament) {
-    teams = datastorage.read("teams").teams;
     var allPlayers = [];
-    teams.forEach(function(t) {
-	t.players.forEach(function(p) {
-	    allPlayers.push({ name: p.name, number: p.number, scores: 0, passes: 0, key: 0 });
-	});
+    datastorage.read("players").players.forEach(function(p) {
+	allPlayers.push({ id: p.id, name: p.name, number: p.number, scores: 0, passes: 0, key: 0 });
     });
     allPlayers.forEach(function(p) {
 	tournament.games.forEach(function(g) {
 	    g.scores.forEach(function(s) {
-		if(p.name === s.passer.name) { p.passes++; p.key++; }
-		if(p.name === s.scorer.name) { p.scores++; p.key++; }
-	    }); 
+		if(p.id === s.scorer) { p.scores++; p.key = p.key + 101; }
+		if(p.id === s.passer) { p.passes++; p.key = p.key + 100; }
+	    });
 	});
     });
     var topPlayers = allPlayers.filter(function(p) {
-	if((p.passes > 0) || (p.scores > 0)) { return p; }
+	if(p.key > 0) { return p; }
     });
-    sortAscending("key", topPlayers);
+    sortDescending("key", topPlayers);
     var tableBody = [];
     topPlayers.forEach(function(p) {
 	tableBody.push("<tr><td>" + p.name + "</td><td>" + p.scores + " + " + p.passes + "</td></tr>");
@@ -1247,7 +1299,7 @@ function createHtmlPenaltyListBody(tournament) {
     var tableBody = [];
     tournament.games.forEach(function(g) {
 	g.penalties.forEach(function(p) {
-	    tableBody.push("<tr><td>" + p.player.name + "</td><td>" + p.code + "</td></tr>");
+	    tableBody.push("<tr><td>" + getPlayerNameById(p.player) + "</td><td>" + p.code + "</td></tr>");
 	});
     });
     return tableBody.join().replace(/,/g, '') + "</table>";
@@ -1266,7 +1318,7 @@ var sortAscending = function(prop, arr) {
 };
 
 var sortDescending = function(prop, arr) {
-    arr.sorth(function(a, b) {
+    arr.sort(function(a, b) {
         if(a[prop] > b[prop]) {
             return -1;
         } else if(a[prop] < b[prop]) {
@@ -1312,8 +1364,8 @@ function extractGamesDataFromInputData(data) {
 	i.frame.forEach(function(g) {
 	    games.push({ round: round++,
 			 time: g[0][0].value,
-			 home: getTeamIdFromName(g[1][0].selected),
-			 guest: getTeamIdFromName(g[2][0].selected),
+			 home: getTeamIdFromTag(g[1][0].selected),
+			 guest: getTeamIdFromTag(g[2][0].selected),
 			 result: "-",
 			 scores: [],
 			 penalties: [],
@@ -1390,10 +1442,10 @@ function extractMatchStatisticsFromInputData(isFinalGame, data) {
     data.items.forEach(function(i) {
 	if(i.frameId === scoreFrameNumber) {
 	    i.frame.forEach(function(m) {
-		var scorer = { name: m[3][0].selected.slice(0, m[3][0].selected.indexOf(' / ')),
-			       number: m[3][0].selected.slice(m[3][0].selected.indexOf(' / ') + 3, m[3][0].selected.length) };
-		var passer = { name: m[4][0].selected.slice(0, m[4][0].selected.indexOf(' / ')),
-			       number: m[4][0].selected.slice(m[4][0].selected.indexOf(' / ') + 3, m[4][0].selected.length) };
+		var scorer = getPlayerIdByNameAndNumber(m[3][0].selected.slice(m[3][0].selected.indexOf(' | ') + 3, m[3][0].selected.indexOf(' (')),
+							m[3][0].selected.slice(m[3][0].selected.indexOf(' (') + 2, m[3][0].selected.indexOf(')')));
+		var passer = getPlayerIdByNameAndNumber(m[4][0].selected.slice(m[4][0].selected.indexOf(' | ') + 3, m[4][0].selected.indexOf(' (')),
+							m[4][0].selected.slice(m[4][0].selected.indexOf(' (') + 2, m[4][0].selected.indexOf(')')));
 		scores.push({ point: getTeamIdFromName(m[0][0].selected),
 			      type: m[1][0].selected,
 			      time: m[2][0].value,
@@ -1403,8 +1455,8 @@ function extractMatchStatisticsFromInputData(isFinalGame, data) {
 	}
 	if(i.frameId === penaltyFrameNumber) {
 	    i.frame.forEach(function(m) {
-		var person = { name: m[5][0].selected.slice(0, m[5][0].selected.indexOf(' / ')),
-			       number: m[5][0].selected.slice(m[5][0].selected.indexOf(' / ') + 3, m[5][0].selected.length) };
+		var person = getPlayerIdByNameAndNumber(m[5][0].selected.slice(m[5][0].selected.indexOf(' | ') + 3, m[5][0].selected.indexOf(' (')),
+							m[5][0].selected.slice(m[5][0].selected.indexOf(' (') + 2, m[5][0].selected.indexOf(')')));
 		penalties.push({ penalty: getTeamIdFromName(m[0][0].selected),
 				 starttime: m[1][0].value,
 				 endtime: m[2][0].value,
