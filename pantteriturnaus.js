@@ -1660,25 +1660,25 @@ function updateDatabaseVersionTo_4() {
 }
 
 function updateDatabaseVersionTo_5() {
-    var newTeams = [];
     var allPlayers = [];
-    var newPlayers = [];
-    var newTournaments = [];
-    var playersNextId = 1;
-    var teamsNextId = datastorage.read("teams").nextId;
-    var tournamentsNextId = datastorage.read("teams").nextId;
     datastorage.read("teams").teams.forEach(function(t) {
 	t.players.forEach(function(p) {
-	    allPlayers.push({ id: playersNextId++,
-			      name: p.name,
+	    allPlayers.push({ name: p.name,
 			      number: p.number,
-			      team: t.name,
-			      role: "" });
+			      team: t.name });
 	});
     });
     sortAscending("name", allPlayers);
-    newPlayers = allPlayers.filter(function(item, pos, ary) {
+    var newPlayers = [];
+    var playersNextId = 1;
+    allPlayers.filter(function(item, pos, ary) {
         return !pos || item.name != ary[pos - 1].name;
+    }).forEach(function(p) {
+	newPlayers.push({ id: playersNextId++,
+			  name: p.name,
+			  number: p.number,
+			  team: p.team,
+			  role: "" });
     });
     if(datastorage.write("players", { nextId: playersNextId, players: newPlayers }) === false) {
 	framework.servicelog("Updating players database failed");
@@ -1686,14 +1686,18 @@ function updateDatabaseVersionTo_5() {
     } else {
 	framework.servicelog("Updated players database to v.5");
     }
+    var newTeams = [];
+    var teamsNextId = 1;
+    var teamsTranslationTable = [];
     datastorage.read("teams").teams.forEach(function(t) {
 	var teamPlayers = [];
+	teamsTranslationTable.push({ oldId: t.id, newId: teamsNextId });
 	t.players.forEach(function(p) {
 	    newPlayers.forEach(function(n) {
 		if(p.name === n.name) { teamPlayers.push(n.id); }
 		});
 	});
-	newTeams.push({ id: t.id,
+	newTeams.push({ id: teamsNextId++,
 			name: t.name,
 			tag: t.name,
 			players: teamPlayers });
@@ -1704,6 +1708,8 @@ function updateDatabaseVersionTo_5() {
     } else {
 	framework.servicelog("Updated teams database to v.5");
     }
+    var newTournaments = [];
+    var tournamentsNextId = 1;
     datastorage.read("tournaments").tournaments.forEach(function(t) {
 	var newGames = [];
 	t.games.forEach(function(g) {
@@ -1724,17 +1730,24 @@ function updateDatabaseVersionTo_5() {
 				    length: p.length,
 				    player: getPlayerIdByName(p.player.name) });
 	    });
+	    var home = teamsTranslationTable.map(function(a) {
+		if(a.oldId === g.home) { return a.newId; }
+	    }).filter(function(f) { return f; })[0];
 	    newGames.push({ round: g.round,
-			    home: g.home,
-			    guest: g.guest,
+			    home: teamsTranslationTable.map(function(a) {
+				if(a.oldId === g.home) { return a.newId; }
+			    }).filter(function(f) { return f; })[0],
+			    guest: teamsTranslationTable.map(function(a) {
+				if(a.oldId === g.guest) { return a.newId; }
+			    }).filter(function(f) { return f; })[0],
 			    result: g.result,
 			    time: g.time,
 			    scores: newScores,
 			    penalties: newPenalties,
 			    isFinalGame: g.isFinalGame });
 	});
-	newTournaments.push({ name: t.name,
-			      id: t.id,
+	newTournaments.push({ id: tournamentsNextId++,
+			      name: t.name,
 			      locked: t.locked,
 			      outputFile: t.outputFile,
 			      games: newGames });
