@@ -40,6 +40,8 @@ function handleApplicationMessage(cookie, decryptedMessage) {
 	processGetSingleTeamForEdit(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "saveSingleTeamData") {
 	processSaveSingleTeamData(cookie, decryptedMessage.content); }
+    if(decryptedMessage.type === "getTournamentMainHelp") {
+	processGetTournamentMainHelp(cookie, decryptedMessage.content); }
 }
 
 
@@ -187,7 +189,8 @@ function processResetToMainState(cookie, content) {
 
 function sendTournamentMainData(cookie) {
     var sendable;
-    var topButtonList = framework.createTopButtons(cookie);
+    var topButtonList = framework.createTopButtons(cookie, [ { button: { text: "Help",
+									 callbackMessage: "getTournamentMainHelp" } } ]);
 
     var tournaments = datastorage.read("tournaments").tournaments.map(function(t) {
 	return { id: t.id, name: t.name, locked: t.locked };
@@ -1469,6 +1472,19 @@ function extractMatchStatisticsFromInputData(isFinalGame, data) {
     return { scores: scores, penalties: penalties };
 }
 
+
+// help screens for panels
+
+function processGetTournamentMainHelp(cookie, data) {
+    framework.servicelog("Client #" + cookie.count + " requests main tournament help page");
+//    var helpWebPage = new Buffer(createPreviewHtmlPage());
+    var helpWebPage = fs.readFileSync("htmlpages/TournamentMainHelp.html");
+
+    sendable = { type: "showHtmlPage",
+		 content: helpWebPage.toString("ascii") };
+    framework.sendCipherTextToClient(cookie, sendable);
+    framework.servicelog("Sent html page to client");
+}
 
 // database conversion and update
 
