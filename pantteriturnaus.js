@@ -527,9 +527,12 @@ function processSaveAllPlayersData(cookie, content) {
     var newPlayers = [];
     var nextId = datastorage.read("players").nextId;
     if(framework.userHasPrivilige("player-delete", cookie.user)) {
+	// If user has "player-delete" privilige, all player data is in frame 0 and it is
+	// valid to replace current player list with the incoming list.
+	// Newly added players are recognized by having keyword "name" in the playerId key.
 	content.items[0].frame.forEach(function(p) {
 	    var id = p[0][0].key;
-	    if(p[0][0].key === "name") { id = nextId++; }
+	    if(id === "name") { id = nextId++; }
 	    newPlayers.push({ id: id,
 			      name: p[0][0].value,
 			      number: p[1][0].value,
@@ -542,12 +545,28 @@ function processSaveAllPlayersData(cookie, content) {
 	    framework.servicelog("Updated players database");
 	}
     } else if(framework.userHasPrivilige("player-edit", cookie.user)) {
-	content.items[0].frame.forEach(function(p) {
-	    newPlayers.push({ id: p[0][0].key,
-			      name: p[0][0].value,
-			      number: p[1][0].value,
-			      role: p[2][0].value,
-			      team: p[3][0].value });
+	// If the user has "player-edit" privilige but no "player-delete" privilige, the static
+	// player list that can be modified but must not be deleted is in frame 0.
+	// The newly added players are in frame 1, no recognition tricks needed here.
+	datastorage.read("players").players.forEach(function(o) {
+	    var flag = true;
+	    content.items[0].frame.forEach(function(p) {
+		if(o.id === p[0][0].key) {
+		    flag = false;
+		    newPlayers.push({ id: o.id,
+				      name: p[0][0].value,
+				      number: p[1][0].value,
+				      role: p[2][0].value,
+				      team: p[3][0].value });
+		}
+	    });
+	    if(flag) {
+		newPlayers.push({ id: o.id,
+				  name: o.name,
+				  number: o.number,
+				  role: o.role,
+				  team: o.team });
+	    }
 	});
 	content.items[1].frame.forEach(function(p) {
 	    newPlayers.push({ id: nextId++,
