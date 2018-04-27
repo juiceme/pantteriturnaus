@@ -42,6 +42,8 @@ function handleApplicationMessage(cookie, decryptedMessage) {
 	processSaveSingleTeamData(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "getTournamentMainHelp") {
 	processGetTournamentMainHelp(cookie, decryptedMessage.content); }
+    if(decryptedMessage.type === "getAllTournamentsEditHelp") {
+	processGetAllTournamentsEditHelp(cookie, decryptedMessage.content); }
 }
 
 
@@ -264,7 +266,9 @@ function processGetTournamentsDataForEdit(cookie, data) {
     framework.servicelog("Client #" + cookie.count + " requests tournament data for edit.");
     if(framework.userHasPrivilige("tournament-edit", cookie.user)) {
 	var sendable;
-	var topButtonList = framework.createTopButtons(cookie);
+	var topButtonList = framework.createTopButtons(cookie, [ { button: { text: "Help",
+									     callbackMessage: "getAllTournamentsEditHelp" } } ]);
+
 	var items = [];
 	datastorage.read("tournaments").tournaments.forEach(function(t) {
 	    items.push([ [ framework.createUiTextNode("id", t.id, 10) ],
@@ -1542,7 +1546,6 @@ function extractMatchStatisticsFromInputData(isFinalGame, data) {
 
 function processGetTournamentMainHelp(cookie, data) {
     framework.servicelog("Client #" + cookie.count + " requests main tournament help page");
-//    var helpWebPage = new Buffer(createPreviewHtmlPage());
     var helpWebPage = fs.readFileSync("htmlpages/TournamentMainHelp.html");
 
     sendable = { type: "showHtmlPage",
@@ -1550,6 +1553,17 @@ function processGetTournamentMainHelp(cookie, data) {
     framework.sendCipherTextToClient(cookie, sendable);
     framework.servicelog("Sent html page to client");
 }
+
+function processGetAllTournamentsEditHelp(cookie, data) {
+    framework.servicelog("Client #" + cookie.count + " requests tournament data edit help page");
+    var helpWebPage = fs.readFileSync("htmlpages/AllTournamentsEditHelp.html");
+
+    sendable = { type: "showHtmlPage",
+		 content: helpWebPage.toString("utf8") };
+    framework.sendCipherTextToClient(cookie, sendable);
+    framework.servicelog("Sent html page to client");
+}
+
 
 // database conversion and update
 
