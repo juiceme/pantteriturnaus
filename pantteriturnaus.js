@@ -1481,7 +1481,7 @@ function processGetTournamentMainHelp(cookie, data) {
     var helpWebPage = fs.readFileSync("htmlpages/TournamentMainHelp.html");
 
     sendable = { type: "showHtmlPage",
-		 content: helpWebPage.toString("ascii") };
+		 content: helpWebPage.toString("utf8") };
     framework.sendCipherTextToClient(cookie, sendable);
     framework.servicelog("Sent html page to client");
 }
