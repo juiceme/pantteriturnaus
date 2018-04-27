@@ -159,6 +159,7 @@ function createAdminPanelUserPriviliges() {
 	     { privilige: "score-edit", code: "se"},
 	     { privilige: "team-edit", code: "te"},
 	     { privilige: "player-edit", code: "pe"},
+	     { privilige: "player-delete", code: "pd"},
 	     { privilige: "tournament-edit", code: "to"} ];
 }
 
@@ -168,7 +169,7 @@ function createAdminPanelUserPriviliges() {
 
 function createTopButtonList(cookie) {
     return [ { button: { text: "Muokkaa Pelaajia", callbackMessage: "getPlayersDataForEdit" },
-	       priviliges: [ "player-edit" ] },
+	       priviliges: [ "player-edit", "player-delete" ] },
 	     { button: { text: "Muokkaa Joukkueita", callbackMessage: "getTeamsDataForEdit" },
 	       priviliges: [ "team-edit", "player-edit" ] },
 	     { button: { text: "Muokkaa Turnauksia", callbackMessage: "getTournamentsDataForEdit" },
@@ -458,7 +459,7 @@ function processSaveTournamentGameData(cookie, data) {
 // Main player edit UI, list of players
 
 function processGetPlayersDataForEdit(cookie, content) {
-    if(framework.userHasPrivilige("player-edit", cookie.user)) {
+    if(framework.userHasPrivilige("player-edit", cookie.user) || framework.userHasPrivilige("player-delete", cookie.user)) {
 	var topButtonList = framework.createTopButtons(cookie);
 	var items = [];
 	var players = datastorage.read("players").players;
@@ -469,20 +470,45 @@ function processGetPlayersDataForEdit(cookie, content) {
 			 [ framework.createUiInputField("number", p.number, 2, false) ],
 			 [ framework.createUiInputField("role", p.role, 2, false) ],
 			 [ framework.createUiInputField("team", p.team, 10, false) ] ]);
+
 	});
-	var itemList = { title: "Players",
-			 frameId: 0,
-			 header: [ [ [ framework.createUiHtmlCell("", "") ],
-				     [ framework.createUiMessageButton("Sort by Name", "getPlayersDataForEdit", "name", true) ],
-				     [ framework.createUiMessageButton("Sort by Number", "getPlayersDataForEdit", "number", true) ],
-				     [ framework.createUiMessageButton("Sort by Role", "getPlayersDataForEdit", "role", true) ],
-				     [ framework.createUiMessageButton("Sort by Team", "getPlayersDataForEdit", "team", true) ] ] ],
-			 items: items,
-			 newItem: [ [ framework.createUiInputField("name", "<name>", 15, false) ],
-				    [ framework.createUiInputField("number", "<x>", 2, false) ],
-				    [ framework.createUiInputField("role", "", 2, false) ],
-				    [ framework.createUiInputField("team", "", 10, false) ] ] };
-	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
+	if(framework.userHasPrivilige("player-delete", cookie.user)) {
+	    var itemList = { title: "Players",
+			     frameId: 0,
+			     header: [ [ [ framework.createUiHtmlCell("", "") ],
+					 [ framework.createUiMessageButton("Sort by Name", "getPlayersDataForEdit", "name", true) ],
+					 [ framework.createUiMessageButton("Sort by Number", "getPlayersDataForEdit", "number", true) ],
+					 [ framework.createUiMessageButton("Sort by Role", "getPlayersDataForEdit", "role", true) ],
+					 [ framework.createUiMessageButton("Sort by Team", "getPlayersDataForEdit", "team", true) ] ] ],
+			     items: items,
+			     newItem: [ [ framework.createUiInputField("name", "<name>", 15, false) ],
+					[ framework.createUiInputField("number", "<x>", 2, false) ],
+					[ framework.createUiInputField("role", "", 2, false) ],
+					[ framework.createUiInputField("team", "", 10, false) ] ] };
+	    var frameList = [ { frameType: "editListFrame", frame: itemList } ];
+	} else {
+	    var itemList = { title: "Players",
+			     frameId: 0,
+			     header: [ [ [ framework.createUiMessageButton("Sort by Name", "getPlayersDataForEdit", "name", true) ],
+					 [ framework.createUiMessageButton("Sort by Number", "getPlayersDataForEdit", "number", true) ],
+					 [ framework.createUiMessageButton("Sort by Role", "getPlayersDataForEdit", "role", true) ],
+					 [ framework.createUiMessageButton("Sort by Team", "getPlayersDataForEdit", "team", true) ] ] ],
+			     items: items };
+	    var newItemList = { title: "New Players",
+				frameId: 1,
+				header: [ [ [ framework.createUiHtmlCell("", "") ],
+					    [ framework.createUiHtmlCell("", "<b>Name</b>") ],
+					    [ framework.createUiHtmlCell("", "<b>Number</b>") ],
+					    [ framework.createUiHtmlCell("", "<b>Role</b>") ],
+					    [ framework.createUiHtmlCell("", "<b>Team</b>") ] ] ],
+				items: [],
+			     newItem: [ [ framework.createUiInputField("name", "<name>", 15, false) ],
+					[ framework.createUiInputField("number", "<x>", 2, false) ],
+					[ framework.createUiInputField("role", "", 2, false) ],
+					[ framework.createUiInputField("team", "", 10, false) ] ] };
+	    var frameList = [ { frameType: "fixedListFrame", frame: itemList },
+			      { frameType: "editListFrame", frame: newItemList } ];
+	}
 	var buttonList = [ { id: 501, text: "OK", callbackMessage: "saveAllPlayersData" },
 			   { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ];
 	var sendable = { type: "createUiPage",
@@ -498,13 +524,33 @@ function processGetPlayersDataForEdit(cookie, content) {
 }
 
 function processSaveAllPlayersData(cookie, content) {
-    if(framework.userHasPrivilige("player-edit", cookie.user)) {
-	var newPlayers = [];
-	var nextId = datastorage.read("players").nextId;
+    var newPlayers = [];
+    var nextId = datastorage.read("players").nextId;
+    if(framework.userHasPrivilige("player-delete", cookie.user)) {
 	content.items[0].frame.forEach(function(p) {
 	    var id = p[0][0].key;
 	    if(p[0][0].key === "name") { id = nextId++; }
 	    newPlayers.push({ id: id,
+			      name: p[0][0].value,
+			      number: p[1][0].value,
+			      role: p[2][0].value,
+			      team: p[3][0].value });
+	});
+	if(datastorage.write("players", { nextId: nextId, players: newPlayers }) === false) {
+	    framework.servicelog("Players database write failed");
+	} else {
+	    framework.servicelog("Updated players database");
+	}
+    } else if(framework.userHasPrivilige("player-edit", cookie.user)) {
+	content.items[0].frame.forEach(function(p) {
+	    newPlayers.push({ id: p[0][0].key,
+			      name: p[0][0].value,
+			      number: p[1][0].value,
+			      role: p[2][0].value,
+			      team: p[3][0].value });
+	});
+	content.items[1].frame.forEach(function(p) {
+	    newPlayers.push({ id: nextId++,
 			      name: p[0][0].value,
 			      number: p[1][0].value,
 			      role: p[2][0].value,
