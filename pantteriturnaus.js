@@ -471,7 +471,7 @@ function processGetPlayersDataForEdit(cookie, content) {
 	var items = [];
 	var players = datastorage.read("players").players;
 	if(content.buttonData === undefined) { content.buttonData = "name"; }
-	sortAscending(content.buttonData, players);
+	players = sortPlayersView(players, content.buttonData);
 	if(framework.userHasPrivilige("player-edit", cookie.user) ||
 	   framework.userHasPrivilige("player-delete", cookie.user)) {
 	    players.forEach(function(p) {
@@ -548,6 +548,50 @@ function processGetPlayersDataForEdit(cookie, content) {
 	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit players");
 	sendTournamentMainData(cookie);
     }
+}
+
+function sortPlayersView(players, key) {
+    if(key === "name") {
+	sortAscending("name", players);
+    }
+    if(key === "number") {
+	sortAscending("team", players);
+	sortAscending("number", players);
+    }
+    if(key === "role") {
+	sortAscending("name", players);
+	sortAscending("role", players);
+   }
+    if(key === "team") {
+	var teams = [];
+	players.forEach(function(p) {
+	    if(teams.filter(function(t) {
+		return t.name === p.team;
+	    }).length === 0) {
+		teams.push({ name: p.team,
+			     players: [ { name: p.name,
+					  number: p.number,
+					  role: p.role,
+					  team: p.team } ] });
+	    } else {
+		var team = teams.filter(function(t) {
+		    return t.name === p.team;
+		})[0];
+		team.players.push({ name: p.name,
+				    number: p.number,
+				    role: p.role,
+				    team: p.team });
+	    }
+	});
+	sortAscending("name", teams);
+	var newPlayers = [];
+	teams.forEach(function(t) {
+	    sortAscending("name", t.players);
+	    newPlayers = newPlayers.concat(t.players);
+	});
+	return newPlayers;
+    }
+    return players;
 }
 
 function processSaveAllPlayersData(cookie, content) {
