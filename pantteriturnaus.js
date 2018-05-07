@@ -167,6 +167,13 @@ function createAdminPanelUserPriviliges() {
 }
 
 
+// No default priviliges needed for self-created users.
+
+function createDefaultPriviliges() {
+    return [ ];
+}
+
+
 // Define the top button panel, always visible.
 // The panel automatically contains "Logout" and "Admin Mode" buttons so no need to include those.
 
@@ -1982,6 +1989,7 @@ framework.setCallback("datastorageInitialize", datastorage.initialize);
 framework.setCallback("handleApplicationMessage", handleApplicationMessage);
 framework.setCallback("processResetToMainState", processResetToMainState);
 framework.setCallback("createAdminPanelUserPriviliges", createAdminPanelUserPriviliges);
+framework.setCallback("createDefaultPriviliges", createDefaultPriviliges);
 framework.setCallback("createTopButtonList", createTopButtonList);
 
 
