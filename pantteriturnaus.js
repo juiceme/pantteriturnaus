@@ -1346,7 +1346,7 @@ function createTournamentPositionResults(tournament) {
 	t.order = t.points * 100 + t.difference;
     });
     sortDescending("order", positions);
-    var tableHeader = "<br><table><tr><th colspan=7>SIJOITUS</th></tr><tr><th>Joukkue</th><th>V</th><th>H</th><th>T</th><th>TM</th><th>PM</th><th>ME</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>";
+    var tableHeader = "<br><table><tr><th colspan=8>SIJOITUS</th></tr><tr><th>Joukkue</th><th>V</th><th>H</th><th>T</th><th>TM</th><th>PM</th><th>ME</th><th>Pisteet</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>";
     var tableBody = [];
     positions.forEach(function(t) {
 	tableBody.push("<tr><td>" + getTeamNameFromId(t.name) + "</td><td>" + t.wins + "</td><td>" + t.loses + "</td><td>" + t.evens +
