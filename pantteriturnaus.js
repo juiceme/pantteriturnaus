@@ -562,11 +562,9 @@ function sortPlayersView(players, key) {
 	sortAscending("name", players);
     }
     if(key === "number") {
-	sortAscending("team", players);
-	sortAscending("number", players);
+	sortAscendingNumber("number", players);
     }
     if(key === "role") {
-	sortAscending("name", players);
 	sortAscending("role", players);
    }
     if(key === "team") {
@@ -576,7 +574,8 @@ function sortPlayersView(players, key) {
 		return t.name === p.team;
 	    }).length === 0) {
 		teams.push({ name: p.team,
-			     players: [ { name: p.name,
+			     players: [ { id: p.id,
+					  name: p.name,
 					  number: p.number,
 					  role: p.role,
 					  team: p.team } ] });
@@ -584,7 +583,8 @@ function sortPlayersView(players, key) {
 		var team = teams.filter(function(t) {
 		    return t.name === p.team;
 		})[0];
-		team.players.push({ name: p.name,
+		team.players.push({ id: p.id,
+				    name: p.name,
 				    number: p.number,
 				    role: p.role,
 				    team: p.team });
@@ -617,6 +617,7 @@ function processSaveAllPlayersData(cookie, content) {
 			      role: p[2][0].value,
 			      team: p[3][0].value });
 	});
+	sortAscendingNumber("id", newPlayers);
 	if(datastorage.write("players", { nextId: nextId, players: newPlayers }) === false) {
 	    framework.servicelog("Players database write failed");
 	} else {
@@ -653,6 +654,7 @@ function processSaveAllPlayersData(cookie, content) {
 			      role: p[2][0].value,
 			      team: p[3][0].value });
 	});
+	sortAscendingNumber("id", newPlayers);
 	if(datastorage.write("players", { nextId: nextId, players: newPlayers }) === false) {
 	    framework.servicelog("Players database write failed");
 	} else {
@@ -1455,6 +1457,18 @@ var sortAscending = function(prop, arr) {
         if(a[prop] < b[prop]) {
             return -1;
         } else if(a[prop] > b[prop]) {
+            return 1;
+        } else {
+            return 0;
+        }
+    });
+};
+
+var sortAscendingNumber = function(prop, arr) {
+    arr.sort(function(a, b) {
+        if(parseInt(a[prop], 10) < parseInt(b[prop], 10)) {
+            return -1;
+        } else if(parseInt(a[prop], 10) > parseInt(b[prop], 10)) {
             return 1;
         } else {
             return 0;
