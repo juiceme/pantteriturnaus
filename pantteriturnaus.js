@@ -64,7 +64,17 @@ function getMatchDataById(id, round) {
     return match;
 }
 
-function getTeamIdFromName(name) {
+function getTeamIdFromNameInList(name, teamNumbersList) {
+    var id = [];
+    datastorage.read("teams").teams.forEach(function(t) {
+	teamNumbersList.forEach(function(l) {
+	    if((t.id === l) && (t.name === name)) { id.push(t.id); }
+	})
+    });
+    return id[0];
+}
+
+function getTeamIdFromName(name, teams) {
     var id = datastorage.read("teams").teams.map(function(t) {
 	if(t.name == name) { return t.id; }
     }).filter(function(f) { return f; })[0];
@@ -1028,6 +1038,13 @@ function processUpdateFinalistTeams(cookie, data) {
 	    if(t.id !== tournamentId) {
 		newTournaments.push(t);
 	    } else {
+		var teams = [];
+		t.games.forEach(function(g) {
+		    teams.push(g.home);
+		});
+		var filteredTeams = teams.filter(function(item, pos, self) {
+		    return self.indexOf(item) === pos;
+		});
 		var tournament = { name: t.name,
 				   id: t.id,
 				   locked: t.locked,
@@ -1038,8 +1055,8 @@ function processUpdateFinalistTeams(cookie, data) {
 			newGames.push(g);
 		    } else {
 			newGames.push({ round: tournamentRound,
-					home: getTeamIdFromName(data.items[0].frame[0][0][0].selected),
-					guest: getTeamIdFromName(data.items[0].frame[0][1][0].selected),
+					home: getTeamIdFromNameInList(data.items[0].frame[0][0][0].selected, filteredTeams),
+					guest: getTeamIdFromNameInList(data.items[0].frame[0][1][0].selected, filteredTeams),
 					result: g.result,
 					scores: g.scores,
 					penalties: g.penalties,
@@ -1208,7 +1225,7 @@ function updateMatchStatisticsFromClient(cookie, match, matchData) {
 		if(g.round !== match.round) {
 		    newGames.push(g);
 		} else {
-		    var newStatistics = extractMatchStatisticsFromInputData(g.isFinalGame, matchData);
+		    var newStatistics = extractMatchStatisticsFromInputData(g.isFinalGame, [g.home, g.guest], matchData);
 		    if(newStatistics === null) {
 			sendTournamentMainData(cookie);
 			return;
@@ -1586,7 +1603,7 @@ function extractSingleTeamDataFromInputData(data) {
     return players;
 }
 
-function extractMatchStatisticsFromInputData(isFinalGame, data) {
+function extractMatchStatisticsFromInputData(isFinalGame, teams, data) {
     if(inputItemsFailVerification(data)) {
 	return null;
     }
@@ -1605,7 +1622,7 @@ function extractMatchStatisticsFromInputData(isFinalGame, data) {
 							m[3][0].selected.slice(m[3][0].selected.indexOf(' (') + 2, m[3][0].selected.indexOf(')')));
 		var passer = getPlayerIdByNameAndNumber(m[4][0].selected.slice(m[4][0].selected.indexOf(' | ') + 3, m[4][0].selected.indexOf(' (')),
 							m[4][0].selected.slice(m[4][0].selected.indexOf(' (') + 2, m[4][0].selected.indexOf(')')));
-		scores.push({ point: getTeamIdFromName(m[0][0].selected),
+		scores.push({ point: getTeamIdFromNameInList(m[0][0].selected, teams),
 			      type: m[1][0].selected,
 			      time: m[2][0].value,
 			      scorer: scorer,
@@ -1616,7 +1633,7 @@ function extractMatchStatisticsFromInputData(isFinalGame, data) {
 	    i.frame.forEach(function(m) {
 		var person = getPlayerIdByNameAndNumber(m[5][0].selected.slice(m[5][0].selected.indexOf(' | ') + 3, m[5][0].selected.indexOf(' (')),
 							m[5][0].selected.slice(m[5][0].selected.indexOf(' (') + 2, m[5][0].selected.indexOf(')')));
-		penalties.push({ penalty: getTeamIdFromName(m[0][0].selected),
+		penalties.push({ penalty: getTeamIdFromNameInList(m[0][0].selected, teams),
 				 starttime: m[1][0].value,
 				 endtime: m[2][0].value,
 				 code: m[3][0].selected,
