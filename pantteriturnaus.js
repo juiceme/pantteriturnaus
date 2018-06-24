@@ -78,21 +78,21 @@ function getTeamIdFromNameInList(name, teamNumbersList) {
 
 function getTeamIdFromName(name, teams) {
     var id = datastorage.read("teams").teams.map(function(t) {
-	if(t.name == name) { return t.id; }
+	if(t.name === name) { return t.id; }
     }).filter(function(f) { return f; })[0];
     return id;
 }
 
 function getTeamIdFromTag(tag) {
     var id = datastorage.read("teams").teams.map(function(t) {
-	if(t.tag == tag) { return t.id; }
+	if(t.tag === tag) { return t.id; }
     }).filter(function(f) { return f; })[0];
     return id;
 }
 
 function getTeamNameFromId(id) {
     var name = datastorage.read("teams").teams.map(function(t) {
-	if(t.id == id) { return t.name; }
+	if(t.id === id) { return t.name; }
     }).filter(function(f) { return f; })[0];
     if(name === undefined) { return "-"; }
     else { return name; }
@@ -100,7 +100,7 @@ function getTeamNameFromId(id) {
 
 function getTeamTagFromId(id) {
     var tag = datastorage.read("teams").teams.map(function(t) {
-	if(t.id == id) { return t.tag; }
+	if(t.id === id) { return t.tag; }
     }).filter(function(f) { return f; })[0];
     if(taǵ === undefined) { return "-"; }
     else { return tag; }
@@ -108,7 +108,7 @@ function getTeamTagFromId(id) {
 
 function getTeamTagFromId(id) {
     var tag = datastorage.read("teams").teams.map(function(t) {
-	if(t.id == id) { return t.tag; }
+	if(t.id === id) { return t.tag; }
     }).filter(function(f) { return f; })[0];
     if(tag === undefined) { return "-"; }
     else { return tag; }
@@ -157,7 +157,7 @@ function getTournamentTeamList(id) {
 	}
     });
     return teams.filter(function(elem, pos) {
-	return teams.indexOf(elem) == pos;
+	return teams.indexOf(elem) === pos;
     }).filter(function(f) {
 	return f;
     }).map(function(t) {
@@ -1092,7 +1092,7 @@ function createPlayerList(match) {
     var homeTeam = "";
     var guestTeam = "";
     datastorage.read("teams").teams.forEach(function(t) {
-	if(t.id == match.home) {
+	if(t.id === match.home) {
 	    homeTeam = t.name;
 	    t.players.forEach(function(id) {
 		players.forEach(function(p) {
@@ -1100,7 +1100,7 @@ function createPlayerList(match) {
 		});
 	    });
 	}
-	if(t.id == match.guest) {
+	if(t.id === match.guest) {
 	    guestTeam = t.name;
 	    t.players.forEach(function(id) {
 		players.forEach(function(p) {
@@ -1379,7 +1379,7 @@ function createTournamentPositionResults(tournament) {
     });
     positions.forEach(function(t) {
 	tournament.games.forEach(function(g) {
-	    if((t.name == g.home) && !g.isFinalGame) {
+	    if((t.name === g.home) && !g.isFinalGame) {
 		if((getScores(g.scores, g.home) !== 0) || (getScores(g.scores, g.guest) !== 0)) {
 		    t.scoresMade += getScores(g.scores, g.home);
 		    t.scoresLost += getScores(g.scores, g.guest);
@@ -1388,7 +1388,7 @@ function createTournamentPositionResults(tournament) {
 		    if(getScores(g.scores, g.home) < getScores(g.scores, g.guest)) { t.loses++; }
 		}
 	    }
-	    if((t.name == g.guest) && !g.isFinalGame) {
+	    if((t.name === g.guest) && !g.isFinalGame) {
 		if((getScores(g.scores, g.home) !== 0) || (getScores(g.scores, g.guest) !== 0)) {
 		    t.scoresMade += getScores(g.scores, g.guest);
 		    t.scoresLost += getScores(g.scores, g.home);
