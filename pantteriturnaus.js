@@ -948,6 +948,7 @@ function sendOneMatchForScoresEdit(cookie, match) {
     var scoreItems = [];
     var penaltyItems = [];
     var frameNumber = 0;
+    cookie.editingMatch =  match.id;
     if(match.isFinalGame) {
 	var teamItems = [ [ [ framework.createUiSelectionList("home", getTournamentTeamList(match.id.id), getTeamNameFromId(match.home)) ],
 			    [ framework.createUiSelectionList("guest", getTournamentTeamList(match.id.id), getTeamNameFromId(match.guest)) ],
@@ -1207,6 +1208,7 @@ function processSaveMatchScores(cookie, data) {
 	    if(b.text === "OK") {
 		updateMatchStatisticsFromClient(cookie, b.data, data);
 		sendOneMatchForScoresEdit(cookie, getMatchDataById(b.data.id, b.data.round));
+		signalEditingClientsForScoresChange(cookie, b.data.id, b.data.round);
 		return;
 	    }
 	});
@@ -1222,6 +1224,8 @@ function processSaveMatchScoresAndReturn(cookie, data) {
 	data.buttonList.forEach(function(b) {
 	    if(b.text === "OK") {
 		updateMatchStatisticsFromClient(cookie, b.data, data);
+		signalEditingClientsForScoresChange(cookie, b.data.id, b.data.round);
+		cookie.editingMatch = {};
 		sendTournamentMainData(cookie);
 		return;
 	    }
@@ -1273,6 +1277,19 @@ function updateMatchStatisticsFromClient(cookie, match, matchData) {
 	createTournamentHtmlPages(getTournamentDataById(match.id));
 	framework.servicelog("Updated tournament database.");
     }
+}
+
+function signalEditingClientsForScoresChange(cookie, id, round) {
+    framework.getConnectionList().forEach(function(c) {
+	if(c.editingMatch !== undefined) {
+	    if((c.count !== cookie.count) &&
+	       (c.editingMatch.id === id ) &&
+	       (c.editingMatch.round === round)) {
+		framework.servicelog("Sending refresh message to client #" + c.count);
+		sendOneMatchForScoresEdit(c, getMatchDataById(id, round));
+	    }
+	}
+    });
 }
 
 
