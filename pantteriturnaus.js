@@ -976,7 +976,7 @@ function sendOneMatchForScoresEdit(cookie, match) {
 			    [ framework.createUiSelectionList("pituus", createPenaltyTimes(), p.length) ],
 			    [ framework.createUiSelectionList("pelaaja", createPlayerList(match), createMatchPlayer(match, p.player)) ] ]);
     });
-    var scoresItemList = { title: "Pisteet: " + getTeamNameFromId(match.home) + " - " + getTeamNameFromId(match.guest),
+    var scoresItemList = { title: "Pisteet: " + getTeamNameFromId(match.home) + " - " + getTeamNameFromId(match.guest) + " [ " + match.result + " ]",
 			   frameId: frameNumber++,
 			   header: [ [ [ framework.createUiHtmlCell("", "") ],
 				       [ framework.createUiHtmlCell("", "<b>piste</b>") ],
