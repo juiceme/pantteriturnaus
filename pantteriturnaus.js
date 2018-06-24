@@ -32,6 +32,8 @@ function handleApplicationMessage(cookie, decryptedMessage) {
 	processGetOneMatchScoresForEdit(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "saveMatchScores") {
 	processSaveMatchScores(cookie, decryptedMessage.content); }
+    if(decryptedMessage.type === "saveMatchScoresAndReturn") {
+	processSaveMatchScoresAndReturn(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "saveAllPlayersData") {
 	processSaveAllPlayersData(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "saveAllTeamsData") {
@@ -1020,8 +1022,9 @@ function sendOneMatchForScoresEdit(cookie, match) {
     sendable = { type: "createUiPage",
 		 content: { topButtonList: topButtonList,
 			    frameList: frameList,
-			    buttonList: [ { id: 501, text: "OK", callbackMessage: "saveMatchScores", data: match.id },
-					  { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
+			    buttonList: [ { id: 501, text: "Apply", callbackMessage: "saveMatchScores", data: match.id },
+					  { id: 502, text: "OK",  callbackMessage: "saveMatchScoresAndReturn", data: match.id },
+					  { id: 503, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
 
     framework.sendCipherTextToClient(cookie, sendable);
     framework.servicelog("Sent NEW editMatchScores to client #" + cookie.count);
@@ -1201,7 +1204,27 @@ function processSaveMatchScores(cookie, data) {
     framework.servicelog("Client #" + cookie.count + " requests match scores saving.");
     if(framework.userHasPrivilige("score-edit", cookie.user)) {
 	data.buttonList.forEach(function(b) {
-	    if(b.text === "OK") { updateMatchStatisticsFromClient(cookie, b.data, data); }
+	    if(b.text === "OK") {
+		updateMatchStatisticsFromClient(cookie, b.data, data);
+		sendOneMatchForScoresEdit(cookie, getMatchDataById(b.data.id, b.data.round));
+		return;
+	    }
+	});
+    } else {
+	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit match scores");
+	sendTournamentMainData(cookie);
+    }
+}
+
+function processSaveMatchScoresAndReturn(cookie, data) {
+    framework.servicelog("Client #" + cookie.count + " requests match scores saving and return to main screen.");
+    if(framework.userHasPrivilige("score-edit", cookie.user)) {
+	data.buttonList.forEach(function(b) {
+	    if(b.text === "OK") {
+		updateMatchStatisticsFromClient(cookie, b.data, data);
+		sendTournamentMainData(cookie);
+		return;
+	    }
 	});
     } else {
 	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit match scores");
