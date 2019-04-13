@@ -2,7 +2,7 @@ var framework = require("./framework/framework.js");
 var fs = require("fs");
 var datastorage = require('./datastorage/datastorage.js');
 
-var databaseVersion = 5;
+var databaseVersion = 6;
 
 
 // Application specific part starts from here
@@ -51,11 +51,22 @@ function handleApplicationMessage(cookie, decryptedMessage) {
 
 // helpers
 
+function getAllTournamentData() {
+    var allTournaments = [];
+    datastorage.read("tournaments").tournaments.forEach(function(t) {
+	allTournaments.push(datastorage.read(t).tournament);
+    });
+    return allTournaments;
+}
+
 function getTournamentDataById(id) {
-    var tournament = datastorage.read("tournaments").tournaments.map(function(t) {
-	if(t.id === id) { return t;}
-    }).filter(function(f){return f;})[0];
-    return tournament;
+    if(datastorage.read("tournaments").tournaments.map(function(t) {
+	if(parseInt(t.split("_")[1]) === id) { return true;}
+    }).filter(function(f){return f;})[0] === true) {
+	return datastorage.read("tournament_" + id).tournament;
+    } else {
+	return false;
+    }
 }
 
 function getMatchDataById(id, round) {
@@ -148,13 +159,9 @@ function getPlayerNameById(id) {
 
 function getTournamentTeamList(id) {
     var teams = [""];
-    datastorage.read("tournaments").tournaments.forEach(function(t) {
-	if(t.id === id) {
-	    t.games.forEach(function(g) {
-		teams.push(g.home);
-		teams.push(g.guest);
-	    });
-	}
+    getTournamentDataById(id).tournament.games.forEach(function(g) {
+	teams.push(g.home);
+	teams.push(g.guest);
     });
     return teams.filter(function(elem, pos) {
 	return teams.indexOf(elem) === pos;
@@ -214,8 +221,7 @@ function sendTournamentMainData(cookie) {
     var sendable;
     var topButtonList = framework.createTopButtons(cookie, [ { button: { text: "Help",
 									 callbackMessage: "getTournamentMainHelp" } } ]);
-
-    var tournaments = datastorage.read("tournaments").tournaments.map(function(t) {
+    var tournaments = getAllTournamentData().map(function(t) {
 	return { id: t.id, name: t.name, locked: t.locked };
     });
    
@@ -290,7 +296,7 @@ function processGetTournamentsDataForEdit(cookie, data) {
 									     callbackMessage: "getAllTournamentsEditHelp" } } ]);
 
 	var items = [];
-	datastorage.read("tournaments").tournaments.forEach(function(t) {
+	getAllTournamentData().forEach(function(t) {
 	    items.push([ [ framework.createUiTextNode("id", t.id) ],
 			 [ framework.createUiInputField("name", t.name, 20, false) ],
 			 [ framework.createUiInputField("outputfile", t.outputFile, 30, false) ],
@@ -333,7 +339,7 @@ function processSaveAllTournamentsData(cookie, data) {
     framework.servicelog("Client #" + cookie.count + " requests tournament data saving.");
     if(framework.userHasPrivilige("tournament-edit", cookie.user)) {
 	var newTournaments = [];
-	var oldTournaments = datastorage.read("tournaments").tournaments;
+	var oldTournaments = getAllTournamentData();
 	var nextId = datastorage.read("tournaments").nextId;
 	var tournamentData = extractTournamentsDataFromInputData(data);
 	if(tournamentData === null) {
@@ -360,10 +366,20 @@ function processSaveAllTournamentsData(cookie, data) {
 				      games: [] });
 	    }
 	});
-	if(datastorage.write("tournaments", { nextId: nextId, tournaments: newTournaments }) === false) {
-	    framework.servicelog("Tournaments database write failed");
+
+	var tournamentsList = [];
+	newTournaments.forEach(function(t) {
+	    tournamentsList.push("tournament_" + t.id);
+	    if(datastorage.isInitialized("tournament_" + t.id)) {
+		datastorage.write("tournament_" + t.id, { tournament: t });
+	    } else {
+		datastorage.initialize("tournament_" + t.id, { tournament: t }, true);
+	    }
+	});
+	if(datastorage.write("tournaments", { nextId: nextId, tournaments: tournamentsList }) === false) {
+	    framework.servicelog("Updating all tournaments database failed");
 	} else {
-	    framework.servicelog("Updated tournaments database");
+	    framework.servicelog("Updated all tournaments database");
 	}
     } else {
 	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament data");
@@ -377,9 +393,7 @@ function processSaveAllTournamentsData(cookie, data) {
 function processGetSingleTournamentForEdit(cookie, data) {
     framework.servicelog("Client #" + cookie.count + " requests single tournament data for edit.");
     if(framework.userHasPrivilige("tournament-edit", cookie.user)) {
-	var tournament = datastorage.read("tournaments").tournaments.map(function(t) {
-	    if(t.id === data.buttonData) { return t; }
-	}).filter(function(f){return f;})[0];
+	var tournament = getTournamentDataById(data.buttonData);
 	var sendable;
 	var topButtonList = framework.createTopButtons(cookie);
 	var items = [];
@@ -420,8 +434,6 @@ function processGetSingleTournamentForEdit(cookie, data) {
 function processSaveTournamentGameData(cookie, data) {
     framework.servicelog("Client #" + cookie.count + " requests saving single tournament game data.");
     if(framework.userHasPrivilige("tournament-edit", cookie.user)) {
-	var newTournaments = [];
-	var oldTournaments = datastorage.read("tournaments");
 	var gameData = extractGamesDataFromInputData(data);
 	if(gameData === null) {
 	    sendTournamentMainData(cookie);
@@ -430,48 +442,42 @@ function processSaveTournamentGameData(cookie, data) {
 	var id = data.buttonList.map(function(b) {
 	    if(b.text === "OK") { return b.data; }
 	}).filter(function(f){return f;})[0];
-	oldTournaments.tournaments.forEach(function(t) {
-	    if(t.id !== id) {
-		newTournaments.push(t);
-	    } else {
-		var newGameData = [];
-		gameData.forEach(function(r) {
-		    var flag = true;
-		    t.games.forEach(function(s) {
-			if(r.round === s.round) {
-			    flag = false;
-			    newGameData.push({ round: r.round,
-					       home: r.home,
-					       guest: r.guest,
-					       result: s.result,
-					       scores: s.scores,
-					       penalties: s.penalties,
-					       time: r.time,
-					       isFinalGame: r.isFinalGame });
-			}
-		    });
-		    if(flag) {
-			newGameData.push({ round: r.round,
-					   home: r.home,
-					   guest: r.guest,
-					   result: "-",
-					   scores: [],
-					   penalties: [],
-					   time: r.time,
-					   isFinalGame: r.isFinalGame });
-		    }
-		});
-		newTournaments.push({ name: t.name,
-				      id: t.id,
-				      outputFile: t.outputFile,
-				      locked: t.locked,
-				      games: newGameData });
+	var tournament = getTournamentDataById(id);
+	var newGameData = [];
+	gameData.forEach(function(r) {
+	    var flag = true;
+	    tournament.games.forEach(function(s) {
+		if(r.round === s.round) {
+		    flag = false;
+		    newGameData.push({ round: r.round,
+				       home: r.home,
+				       guest: r.guest,
+				       result: s.result,
+				       scores: s.scores,
+				       penalties: s.penalties,
+				       time: r.time,
+				       isFinalGame: r.isFinalGame });
+		}
+	    });
+	    if(flag) {
+		newGameData.push({ round: r.round,
+				   home: r.home,
+				   guest: r.guest,
+				   result: "-",
+				   scores: [],
+				   penalties: [],
+				   time: r.time,
+				   isFinalGame: r.isFinalGame });
 	    }
 	});
-	if(datastorage.write("tournaments", { nextId: oldTournaments.nextId, tournaments: newTournaments }) === false) {
-	    framework.servicelog("Tournaments database write failed");
+	if(datastorage.write("tournament_" + tournament.id, { tournament: { name: tournament.name,
+									    id: tournament.id,
+									    outputFile: tournament.outputFile,
+									    locked: tournament.locked,
+									    games: newGameData } }) === false) {
+	    framework.servicelog("Updating all tournament database failed");
 	} else {
-	    framework.servicelog("Updated tournaments database");
+	    framework.servicelog("Updated tournament database");
 	}
     } else {
 	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament data");
@@ -1036,47 +1042,38 @@ function processUpdateFinalistTeams(cookie, data) {
     if(framework.userHasPrivilige("score-edit", cookie.user)) {
 	var tournamentId = data.buttonData.id.id.id;
 	var tournamentRound = data.buttonData.id.id.round;
-	var oldTournaments = datastorage.read("tournaments");
-	var newTournaments = [];
-	oldTournaments.tournaments.forEach(function(t) {
-	    if(t.id !== tournamentId) {
-		newTournaments.push(t);
+	var tournament = getTournamentDataById(tournamentId);
+	var teams = [];
+	tournament.games.forEach(function(g) {
+	    teams.push(g.home);
+	});
+	var filteredTeams = teams.filter(function(item, pos, self) {
+	    return self.indexOf(item) === pos;
+	});
+	var newGames = [];
+	tournament.games.forEach(function(g) {
+	    if(g.round !== tournamentRound) {
+		newGames.push(g);
 	    } else {
-		var teams = [];
-		t.games.forEach(function(g) {
-		    teams.push(g.home);
-		});
-		var filteredTeams = teams.filter(function(item, pos, self) {
-		    return self.indexOf(item) === pos;
-		});
-		var tournament = { name: t.name,
-				   id: t.id,
-				   locked: t.locked,
-				   outputFile: t.outputFile };
-		var newGames = [];
-		t.games.forEach(function(g) {
-		    if(g.round !== tournamentRound) {
-			newGames.push(g);
-		    } else {
-			newGames.push({ round: tournamentRound,
-					home: getTeamIdFromNameInList(data.items[0].frame[0][0][0].selected, filteredTeams),
-					guest: getTeamIdFromNameInList(data.items[0].frame[0][1][0].selected, filteredTeams),
-					result: g.result,
-					scores: g.scores,
-					penalties: g.penalties,
-					time: g.time,
-					isFinalGame: g.isFinalGame });
-		    }
-		});
-		tournament.games = newGames;
-		newTournaments.push(tournament);
+		newGames.push({ round: tournamentRound,
+				home: getTeamIdFromNameInList(data.items[0].frame[0][0][0].selected, filteredTeams),
+				guest: getTeamIdFromNameInList(data.items[0].frame[0][1][0].selected, filteredTeams),
+				result: g.result,
+				scores: g.scores,
+				penalties: g.penalties,
+				time: g.time,
+				isFinalGame: g.isFinalGame });
 	    }
 	});
-	if(datastorage.write("tournaments", { nextId: oldTournaments.nextId, tournaments: newTournaments }) === false) {
-	    framework.servicelog("Tournament database write failed");
+	if(datastorage.write("tournament_" + tournament.id, { tournament: { name: tournament.name,
+									    id: tournament.id,
+									    outputFile: tournament.outputFile,
+									    locked: tournament.locked,
+									    games: newGames } }) === false) {
+	    framework.servicelog("Updating tournament database failed");
 	} else {
 	    createTournamentHtmlPages(getTournamentDataById(tournamentId));
-	    framework.servicelog("Updated tournament database.");
+	    framework.servicelog("Updated tournament database");
 	}
 	sendOneMatchForScoresEdit(cookie, getMatchDataById(tournamentId, tournamentRound));
     } else {
@@ -1237,45 +1234,37 @@ function processSaveMatchScoresAndReturn(cookie, data) {
 }
 
 function updateMatchStatisticsFromClient(cookie, match, matchData) {
-    var oldTournaments = datastorage.read("tournaments");
-    var newTournaments = [];
-    oldTournaments.tournaments.forEach(function(t) {
-	if(t.id !== match.id) {
-	    newTournaments.push(t);
+    var tournament = getTournamentDataById(match.id);
+    var newGames = [];
+    tournament.games.forEach(function(g) {
+	if(g.round !== match.round) {
+	    newGames.push(g);
 	} else {
-	    var tournament = { name: t.name,
-			       id: t.id,
-			       locked: t.locked,
-			       outputFile: t.outputFile };
-	    var newGames = [];
-	    t.games.forEach(function(g) {
-		if(g.round !== match.round) {
-		    newGames.push(g);
-		} else {
-		    var newStatistics = extractMatchStatisticsFromInputData(g.isFinalGame, [g.home, g.guest], matchData);
-		    if(newStatistics === null) {
-			sendTournamentMainData(cookie);
-			return;
-		    }
-		    newGames.push({ round: match.round,
-				    home: g.home,
-				    guest: g.guest,
-				    result: calculateResultFromScores(newStatistics.scores, { home: g.home, guest:g.guest }),
-				    scores: newStatistics.scores,
-				    penalties: newStatistics.penalties,
-				    time: g.time,
-				    isFinalGame: g.isFinalGame  });
-		}
-	    });
-	    tournament.games = newGames;
-	    newTournaments.push(tournament);
+	    var newStatistics = extractMatchStatisticsFromInputData(g.isFinalGame, [g.home, g.guest], matchData);
+	    if(newStatistics === null) {
+		sendTournamentMainData(cookie);
+		return;
+	    }
+	    newGames.push({ round: match.round,
+			    home: g.home,
+			    guest: g.guest,
+			    result: calculateResultFromScores(newStatistics.scores, { home: g.home, guest:g.guest }),
+			    scores: newStatistics.scores,
+			    penalties: newStatistics.penalties,
+			    time: g.time,
+			    isFinalGame: g.isFinalGame  });
 	}
+	tournament.games = newGames;
     });
-    if(datastorage.write("tournaments", { nextId: oldTournaments.nextId, tournaments: newTournaments }) === false) {
-	framework.servicelog("Tournament database write failed");
+    if(datastorage.write("tournament_" + tournament.id, { tournament: { name: tournament.name,
+									id: tournament.id,
+									outputFile: tournament.outputFile,
+									locked: tournament.locked,
+									games: newGames } }) === false) {
+	framework.servicelog("Updating tournament database failed");
     } else {
-	createTournamentHtmlPages(getTournamentDataById(match.id));
-	framework.servicelog("Updated tournament database.");
+	createTournamentHtmlPages(getTournamentDataById(tournament.id));
+	framework.servicelog("Updated tournament database");
     }
 }
 
@@ -2007,6 +1996,29 @@ function updateDatabaseVersionTo_5() {
     }
 }
 
+function updateDatabaseVersionTo_6() {
+    var tournaments = [];
+    var nextId = datastorage.read("tournaments").nextId;
+    datastorage.read("tournaments").tournaments.forEach(function(t) {
+	tournaments.push("tournament_" + t.id);
+	datastorage.initialize("tournament_" + t.id, { tournament: t }, true);
+    });
+    if(datastorage.write("tournaments", { nextId: nextId, tournaments: tournaments }) === false) {
+	framework.servicelog("Updating tournament database failed");
+	process.exit(1);
+    } else {
+	framework.servicelog("Updated tournaments database to v.6");
+    }
+    var mainConfig = datastorage.read("main").main;
+    mainConfig.version = 6;
+    if(datastorage.write("main", { main: mainConfig }) === false) {
+	framework.servicelog("Updating main database failed");
+	process.exit(1);
+    } else {
+	framework.servicelog("Updated main database to v.5");
+    }
+}
+
 
 // Initialize application-specific datastorages
 
@@ -2048,6 +2060,14 @@ function initializeDataStorages() {
 	    // update database version from 4 to 5
 	    updateDatabaseVersionTo_5();
 	}
+	if(mainConfig.version === 5) {
+	    // update database version from 5 to 6
+	    updateDatabaseVersionTo_6();
+	}
+    } else {
+	datastorage.read("tournaments").tournaments.forEach(function(t) {
+	    datastorage.initialize(t, []);
+	});	
     }
 }
 
