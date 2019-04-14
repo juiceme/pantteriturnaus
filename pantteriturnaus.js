@@ -2015,7 +2015,7 @@ function updateDatabaseVersionTo_6() {
 	framework.servicelog("Updating main database failed");
 	process.exit(1);
     } else {
-	framework.servicelog("Updated main database to v.5");
+	framework.servicelog("Updated main database to v.6");
     }
 }
 
