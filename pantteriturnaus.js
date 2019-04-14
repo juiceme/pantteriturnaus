@@ -366,7 +366,16 @@ function processSaveAllTournamentsData(cookie, data) {
 				      games: [] });
 	    }
 	});
-
+	var deletableTournaments = [];
+	oldTournaments.forEach(function(t) {
+	    var flag = true;
+	    tournamentData.forEach(function(u) {
+		if(t.id === u.id) {
+		    flag = false;
+		}
+	    });
+	    if(flag) { deletableTournaments.push("tournament_" + t.id); }
+	});
 	var tournamentsList = [];
 	newTournaments.forEach(function(t) {
 	    tournamentsList.push("tournament_" + t.id);
@@ -380,6 +389,10 @@ function processSaveAllTournamentsData(cookie, data) {
 	    framework.servicelog("Updating all tournaments database failed");
 	} else {
 	    framework.servicelog("Updated all tournaments database");
+	    deletableTournaments.forEach(function(t) {
+		datastorage.deleteStorage(t);
+		framework.servicelog("Deleted datastorage " + t);
+	    });
 	}
     } else {
 	framework.servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament data");
