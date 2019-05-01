@@ -159,7 +159,7 @@ function getPlayerNameById(id) {
 
 function getTournamentTeamList(id) {
     var teams = [""];
-    getTournamentDataById(id).tournament.games.forEach(function(g) {
+    getTournamentDataById(id).games.forEach(function(g) {
 	teams.push(g.home);
 	teams.push(g.guest);
     });
