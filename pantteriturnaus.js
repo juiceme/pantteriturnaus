@@ -1,6 +1,7 @@
 var framework = require("./framework/framework.js");
 var fs = require("fs");
-var datastorage = require('./datastorage/datastorage.js');
+var datastorage = require("./datastorage/datastorage.js");
+var pdfprinter = require("./pdfprinter.js");
 
 var databaseVersion = 6;
 
@@ -170,6 +171,21 @@ function getTournamentTeamList(id) {
     }).map(function(t) {
 	return getTeamNameFromId(t);
     });
+}
+
+function getTeamPlayers(id) {
+    var players = datastorage.read("players").players;
+    var playerList = [];
+    datastorage.read("teams").teams.forEach(function(t) {
+	if(t.id === id) {
+	    t.players.forEach(function(p) {
+		players.forEach(function(r) {
+		    if(r.id === p) { playerList.push(r); }
+		});
+	    });
+	}
+    });
+    return playerList;
 }
 
 
@@ -1295,13 +1311,13 @@ function signalEditingClientsForScoresChange(cookie, id, round) {
 }
 
 
-// Create the tournament result html pages
+// Create the tournament result html and pdf pages
 
 function createTournamentHtmlPages(myTournament) {
     fs.writeFileSync(myTournament.outputFile + ".html", createHtmlMainResultsPage(myTournament));
     myTournament.games.forEach(function(g) {
 	if(g.result !== "-") {
-	    fs.writeFileSync(myTournament.outputFile + "_" + g.round + ".html", createHtmlSubResultsPage(g));
+	    createPdfResultsPage(myTournament.outputFile + "_" + g.round + ".pdf", g, myTournament);
 	}
     });
     fs.writeFileSync(myTournament.outputFile + "_toplist" + ".html", createHtmlTopListPage(myTournament));
@@ -1342,14 +1358,59 @@ function createHtmlPositionsPage(tournament) {
     return header + mainBody + tailer;
 }
 
-function createHtmlSubResultsPage(game) {
-    var finalGame = "";
-    if(game.isFinalGame) {
-	finalGame = " [Finaali]";
-    }
-    var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } </style><table><tr><th colspan=5>" + getTeamNameFromId(game.home) + " - " + getTeamNameFromId(game.guest) + finalGame + "</th></tr><tr><th>Aika</th><th>Piste</th><th>Tyyppi</th><th>Maalintekijä</th><th>Syöttäjä</th></tr><tr><td></td><td></td><td></td><td></td><td></td></tr>";
-    var tailer = "</table></html>";
-    return header + createSubResultBody(game) + tailer;
+function createPdfResultsPage(filename, game, tournament)
+{
+    var homeTeam = getTeamPlayers(game.home);
+    sortAscendingNumber("number", homeTeam);
+    var guestTeam = getTeamPlayers(game.guest);
+    sortAscendingNumber("number", guestTeam);
+
+    var hPlayers = [];
+    homeTeam.forEach(function(p) {
+	hPlayers.push({ name: p.name,
+			number: p.number,
+			role: p.role,
+			goal: 0,
+			pass: 0 });
+    });
+    var gPlayers = [];
+    guestTeam.forEach(function(p) {
+	gPlayers.push({ name: p.name,
+			number: p.number,
+			role: p.role,
+			goal: 0,
+			pass: 0 });
+    });
+
+    var teams = { home:
+		  { name: getTeamNameFromId(game.home),
+		    players: hPlayers },
+		  guest:
+		  { name: getTeamNameFromId(game.guest),
+		    players: gPlayers } };
+
+    var results = { home: 
+		    { goals: [],
+		      penalties: [] },
+		    guest:
+		    { goals: [],
+		      penalties: [] } };
+
+    var match = { series: tournament.name,
+		  number: game.round,
+		  winner: "",
+		  scores: [],
+		  officials: [],
+		  referees: [],
+		  timeOut: [],
+		  spectators: "",
+		  date: "",
+		  start: "",
+		  end: "",
+		  venue: "" };
+
+
+    pdfprinter.printSheet(filename, teams, results, match);
 }
 
 function createMainResultBody(tournament) {
