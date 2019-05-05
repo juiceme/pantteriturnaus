@@ -3,7 +3,7 @@ var fs = require("fs");
 var datastorage = require("./datastorage/datastorage.js");
 var pdfprinter = require("./pdfprinter.js");
 
-var databaseVersion = 6;
+var databaseVersion = 7;
 
 
 // Application specific part starts from here
@@ -490,6 +490,11 @@ function processSaveTournamentGameData(cookie, data) {
 				       home: r.home,
 				       guest: r.guest,
 				       result: s.result,
+				       officials: r.officials,
+				       referees: r.referees,
+				       timeOut: r.timeOut,
+				       start: r.start,
+				       end: r.end,
 				       scores: s.scores,
 				       penalties: s.penalties,
 				       time: r.time,
@@ -501,6 +506,11 @@ function processSaveTournamentGameData(cookie, data) {
 				   home: r.home,
 				   guest: r.guest,
 				   result: "-",
+				   officials: r.officials,
+				   referees: r.referees,
+				   timeOut: r.timeOut,
+				   start: r.start,
+				   end: r.end,
 				   scores: [],
 				   penalties: [],
 				   time: r.time,
@@ -511,6 +521,10 @@ function processSaveTournamentGameData(cookie, data) {
 									    id: tournament.id,
 									    outputFile: tournament.outputFile,
 									    locked: tournament.locked,
+									    roundLength: tournament.roundLength,
+									    date: tournament.date,
+									    venue: tournament.venue,
+									    spectators: tournament.spectators,
 									    games: newGameData } }) === false) {
 	    framework.servicelog("Updating all tournament database failed");
 	} else {
@@ -1096,6 +1110,11 @@ function processUpdateFinalistTeams(cookie, data) {
 				home: getTeamIdFromNameInList(data.items[0].frame[0][0][0].selected, filteredTeams),
 				guest: getTeamIdFromNameInList(data.items[0].frame[0][1][0].selected, filteredTeams),
 				result: g.result,
+				officials: g.officials,
+				referees: g.referees,
+				timeOut: g.timeOut,
+				start: g.start,
+				end: g.end,
 				scores: g.scores,
 				penalties: g.penalties,
 				time: g.time,
@@ -1106,6 +1125,10 @@ function processUpdateFinalistTeams(cookie, data) {
 									    id: tournament.id,
 									    outputFile: tournament.outputFile,
 									    locked: tournament.locked,
+									    roundLength: tournament.roundLength,
+									    date: tournament.date,
+									    venue: tournament.venue,
+									    spectators: tournament.spectators,
 									    games: newGames } }) === false) {
 	    framework.servicelog("Updating tournament database failed");
 	} else {
@@ -1286,6 +1309,11 @@ function updateMatchStatisticsFromClient(cookie, match, matchData) {
 			    home: g.home,
 			    guest: g.guest,
 			    result: calculateResultFromScores(newStatistics.scores, { home: g.home, guest:g.guest }),
+			    officials: g.officials,
+			    referees: g.referees,
+			    timeOut: g.timeOut,
+			    start: g.start,
+			    end: g.end,
 			    scores: newStatistics.scores,
 			    penalties: newStatistics.penalties,
 			    time: g.time,
@@ -1297,6 +1325,10 @@ function updateMatchStatisticsFromClient(cookie, match, matchData) {
 									id: tournament.id,
 									outputFile: tournament.outputFile,
 									locked: tournament.locked,
+									roundLength: tournament.roundLength,
+									date: tournament.date,
+									venue: tournament.venue,
+									spectators: tournament.spectators,
 									games: newGames } }) === false) {
 	framework.servicelog("Updating tournament database failed");
     } else {
@@ -1366,8 +1398,7 @@ function createHtmlPositionsPage(tournament) {
     return header + mainBody + tailer;
 }
 
-function createPdfResultsPage(filename, game, tournament)
-{
+function createPdfResultsPage(filename, game, tournament) {
     var teams = { home:
 		  { name: getTeamNameFromId(game.home),
 		    players: getPlayerListWithScores(game.home, game) },
@@ -1395,8 +1426,7 @@ function createPdfResultsPage(filename, game, tournament)
     pdfprinter.printSheet(filename, teams, results, match);
 }
 
-function getPlayerListWithScores(teamId, game)
-{
+function getPlayerListWithScores(teamId, game) {
     var team = getTeamPlayers(teamId);
     sortAscendingNumber("number", team);
     var players = [];
@@ -1418,8 +1448,7 @@ function getPlayerListWithScores(teamId, game)
     return players;
 }
 
-function getTeamScoresAndPenalties(teamId, game)
-{
+function getTeamScoresAndPenalties(teamId, game) {
     var scores = [];
     var penalties = [];
     game.scores.forEach(function(s) {
@@ -2123,6 +2152,39 @@ function updateDatabaseVersionTo_6() {
     }
 }
 
+function updateDatabaseVersionTo_7() {
+    console.log(JSON.stringify(datastorage.read("tournaments")));
+    datastorage.read("tournaments").tournaments.forEach(function(t) {
+	datastorage.initialize(t, {});
+	var tournament = datastorage.read(t).tournament;
+	tournament.roundLength = 20;
+	tournament.date = "";
+	tournament.venue = "";
+	tournament.spectators = "Vapaa pääsy";
+	tournament.games.forEach(function(g) {
+	    g.officials = [];
+	    g.referees = [];
+	    g.timeOut = [];
+	    g.start = "";
+	    g.end = "";
+	});
+	if(datastorage.write(t, { tournament: tournament } ) === false) {
+	    framework.servicelog("Updating tournament database " + t + " failed");
+	    process.exit(1);
+	} else {
+	    framework.servicelog("Updated tournament database " + t + "to v.7");
+	}
+    });
+    var mainConfig = datastorage.read("main").main;
+    mainConfig.version = 7;
+    if(datastorage.write("main", { main: mainConfig }) === false) {
+	framework.servicelog("Updating main database failed");
+	process.exit(1);
+    } else {
+	framework.servicelog("Updated main database to v.7");
+    }
+}
+
 
 // Initialize application-specific datastorages
 
@@ -2167,6 +2229,10 @@ function initializeDataStorages() {
 	if(mainConfig.version === 5) {
 	    // update database version from 5 to 6
 	    updateDatabaseVersionTo_6();
+	}
+	if(mainConfig.version === 6) {
+	    // update database version from 6 to 7
+	    updateDatabaseVersionTo_7();
 	}
     } else {
 	datastorage.read("tournaments").tournaments.forEach(function(t) {
