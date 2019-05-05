@@ -1413,14 +1413,14 @@ function createPdfResultsPage(filename, game, tournament) {
 		  number: game.round,
 		  winner: "",
 		  scores: [],
-		  officials: [],
-		  referees: [],
-		  timeOut: [],
-		  spectators: "",
-		  date: "",
-		  start: "",
-		  end: "",
-		  venue: "" };
+		  officials: game.officials,
+		  referees: game.referees,
+		  timeOut: game.timeOut,
+		  spectators: tournament.spectators,
+		  date: tournament.date,
+		  start: game.start,
+		  end: game.end,
+		  venue: tournament.venue };
 
 
     pdfprinter.printSheet(filename, teams, results, match);
