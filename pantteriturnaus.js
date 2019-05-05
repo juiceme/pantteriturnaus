@@ -158,6 +158,14 @@ function getPlayerNameById(id) {
     else { return name; }
 }
 
+function getPlayerNumberById(id) {
+    var number = datastorage.read("players").players.map(function(p) {
+	if(p.id === id) { return p.number; }
+    }).filter(function(f) { return f; })[0];
+    if(number === undefined) { return ""; }
+    else { return number; }
+}
+
 function getTournamentTeamList(id) {
     var teams = [""];
     getTournamentDataById(id).games.forEach(function(g) {
@@ -1360,41 +1368,15 @@ function createHtmlPositionsPage(tournament) {
 
 function createPdfResultsPage(filename, game, tournament)
 {
-    var homeTeam = getTeamPlayers(game.home);
-    sortAscendingNumber("number", homeTeam);
-    var guestTeam = getTeamPlayers(game.guest);
-    sortAscendingNumber("number", guestTeam);
-
-    var hPlayers = [];
-    homeTeam.forEach(function(p) {
-	hPlayers.push({ name: p.name,
-			number: p.number,
-			role: p.role,
-			goal: 0,
-			pass: 0 });
-    });
-    var gPlayers = [];
-    guestTeam.forEach(function(p) {
-	gPlayers.push({ name: p.name,
-			number: p.number,
-			role: p.role,
-			goal: 0,
-			pass: 0 });
-    });
-
     var teams = { home:
 		  { name: getTeamNameFromId(game.home),
-		    players: hPlayers },
+		    players: getPlayerListWithScores(game.home, game) },
 		  guest:
 		  { name: getTeamNameFromId(game.guest),
-		    players: gPlayers } };
-
-    var results = { home: 
-		    { goals: [],
-		      penalties: [] },
-		    guest:
-		    { goals: [],
-		      penalties: [] } };
+		    players: getPlayerListWithScores(game.guest, game) } };
+				    
+    var results = { home: getTeamScoresAndPenalties(game.home, game),
+		    guest: getTeamScoresAndPenalties(game.guest, game) };
 
     var match = { series: tournament.name,
 		  number: game.round,
@@ -1413,6 +1395,54 @@ function createPdfResultsPage(filename, game, tournament)
     pdfprinter.printSheet(filename, teams, results, match);
 }
 
+function getPlayerListWithScores(teamId, game)
+{
+    var team = getTeamPlayers(teamId);
+    sortAscendingNumber("number", team);
+    var players = [];
+    team.forEach(function(p) {
+	var goal = 0;
+	var pass = 0;
+	game.scores.forEach(function(s) {
+	    if(p.id === s.scorer) { goal++; }
+	    if(p.id === s.passer) { pass++; }
+	});
+	if(goal === 0) { goal = "";} 
+	if(pass === 0) { pass = "";} 
+	players.push({ name: p.name,
+		       number: p.number,
+		       role: p.role,
+		       goal: goal,
+		       pass: pass });
+    });
+    return players;
+}
+
+function getTeamScoresAndPenalties(teamId, game)
+{
+    var scores = [];
+    var penalties = [];
+    game.scores.forEach(function(s) {
+	if(s.point === teamId) {
+	    scores.push( { time: s.time,
+			   goal: getPlayerNumberById(s.scorer),
+			   pass: getPlayerNumberById(s.passer),
+			   code: s.type } );
+	}
+    });
+    game.penalties.forEach(function(p) {
+	if(p.penalty === teamId) {
+	    penalties.push( { player: getPlayerNumberById(p.player),
+			      length: parseInt(p.length),
+			      code: p.code.split(" ")[0],
+			      start: p.starttime,
+			      end: p.endtime } );
+	}
+    });
+    return { scores: scores,
+	     penalties: penalties };
+}
+
 function createMainResultBody(tournament) {
     var tableBody = [];
     tournament.games.forEach(function(g) {
@@ -1422,7 +1452,7 @@ function createMainResultBody(tournament) {
 	}
 	var resultPageLink = "-"
 	if(g.result !== "-") {
-	    resultPageLink = "<a href=\"" + tournament.outputFile.substring(tournament.outputFile.lastIndexOf("/")+1) + "_" + g.round + ".html\">" +  g.result + "</a>";
+	    resultPageLink = "<a href=\"" + tournament.outputFile.substring(tournament.outputFile.lastIndexOf("/")+1) + "_" + g.round + ".pdf\">" +  g.result + "</a>";
 	}
 	tableBody.push("<tr><td>" + g.round + finalGame + "</td><td>" + getTeamNameFromId(g.home) +
 		       "</td><td>" + getTeamNameFromId(g.guest) + "</td><td>" + g.time +

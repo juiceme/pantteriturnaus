@@ -19,8 +19,7 @@
   "bugs": {
     "url": "http://github.com/juiceme/pantteriturnaus/issues"
   },
-  "devDependencies": {
-  },
+  "devDependencies": {},
   "dependencies": {
     "pdfkit": "=0.7.2"
   },

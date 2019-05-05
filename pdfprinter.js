@@ -16,8 +16,8 @@ function printSheet(filename, teams, results, match)
 
     drawPlayers(doc, "home", teams.home);
     drawPlayers(doc, "guest", teams.guest);
-    drawGoals(doc, "home", results.home.goals);
-    drawGoals(doc, "guest", results.guest.goals);
+    drawScores(doc, "home", results.home.scores);
+    drawScores(doc, "guest", results.guest.scores);
     drawPenalties(doc, "home", results.home.penalties);
     drawPenalties(doc, "guest", results.guest.penalties);
     drawMatchTotals(doc, match);
@@ -47,7 +47,7 @@ function drawPlayers(doc, place, team)
     });
 }
 
-function drawGoals(doc, place, goals)
+function drawScores(doc, place, scores)
 {
     var offset = 69;
     if(place === "guest") {
@@ -55,12 +55,12 @@ function drawGoals(doc, place, goals)
     }
 
     var i = 1;
-    goals.forEach(function(g) {
+    scores.forEach(function(s) {
 	text(doc, i, 7, 341, offset + i * 10);
-	text(doc, g.time, 7, 360, offset + i * 10);
-	text(doc, g.goal, 7, 386, offset + i * 10);
-	text(doc, g.pass, 7, 402, offset + i * 10);
-	text(doc, g.code, 7, 418, offset + i * 10);
+	text(doc, s.time, 7, 360, offset + i * 10);
+	text(doc, s.goal, 7, 386, offset + i * 10);
+	text(doc, s.pass, 7, 402, offset + i * 10);
+	text(doc, s.code, 7, 418, offset + i * 10);
 	i++;
     });
 }
@@ -75,7 +75,7 @@ function drawPenalties(doc, place, penalties)
     var i = 1;
     penalties.forEach(function(p) {
 	text(doc, p.player, 7, 435, offset + i * 10);
-	text(doc, p.minutes, 7, 451, offset + i * 10);
+	text(doc, p.length, 7, 451, offset + i * 10);
 	text(doc, p.code, 7, 468, offset + i * 10);
 	text(doc, p.start, 7, 486, offset + i * 10);
 	text(doc, p.end, 7, 516, offset + i * 10);
