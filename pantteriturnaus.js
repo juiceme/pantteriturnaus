@@ -1380,6 +1380,7 @@ function createTournamentHtmlPages(myTournament) {
 }
 
 function createPreviewHtmlPage(tournament) {
+    createTournamentHtmlPages(tournament);
     var header = "<!DOCTYPE html><meta charset=\"UTF-8\"><style>table { font-family: arial, sans-serif; border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; } </style><table><tr><th>Ottelu</th><th>Kotijoukkue</th><th>Vierasjoukkue</th><th>Aika</th><th>Tulos</th></tr>";
     var mainBody = createMainResultBody(tournament) + "</table>";
     var resultsBody = createTournamentPositionResults(tournament);
