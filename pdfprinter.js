@@ -20,7 +20,7 @@ function printSheet(filename, teams, results, match)
     drawScores(doc, "guest", results.guest.scores);
     drawPenalties(doc, "home", results.home.penalties);
     drawPenalties(doc, "guest", results.guest.penalties);
-    drawMatchTotals(doc, match);
+    drawMatchTotals(doc, match, teams);
 
     doc.end();
 }
@@ -92,7 +92,7 @@ function drawPenalties(doc, place, penalties)
 	 8, 510,  offset + 212);
 }
 
-function drawMatchTotals(doc, match)
+function drawMatchTotals(doc, match, teams)
 {
     text(doc, match.series, 7, 580, 98);
     text(doc, match.spectators, 7, 710, 98);
@@ -117,13 +117,28 @@ function drawMatchTotals(doc, match)
     match.scores.forEach(function(s) {
 	homeScore = homeScore + s.home;
 	guestScore = guestScore + s.guest;
-	text(doc, s.home, 7, 569, 209 + 10*i);
-	text(doc, s.guest, 7, 586, 209 + 10*i);
+	if(s.home !== 0) {
+	    text(doc, s.home, 7, 569, 209 + 10*i);
+	} else {
+	    if(s.guest !== 0) {
+		text(doc, "-", 7, 569, 209 + 10*i);
+	    }
+	}
+	if(s.guest !== 0) {
+	    text(doc, s.guest, 7, 586, 209 + 10*i);
+	} else {
+	    if(s.home !== 0) {
+		text(doc, "-", 7, 586, 209 + 10*i);
+	    }
+	}
 	i++;
     });
     text(doc, homeScore, 7, 569, 262);
     text(doc, guestScore, 7, 586, 262);
-    text(doc, match.winner, 9, 630, 280);
+    var winner = "";
+    if(homeScore > guestScore) { winner = teams.home.name; }
+    if(homeScore < guestScore) { winner = teams.guest.name; }
+    text(doc, winner, 9, 630, 280);
     text(doc, match.timeOut.home, 7, 610, 464);
     text(doc, match.timeOut.guest, 7, 672, 464);
 }

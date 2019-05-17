@@ -1424,10 +1424,41 @@ function createPdfResultsPage(filename, game, tournament) {
     var results = { home: getTeamScoresAndPenalties(game.home, game),
 		    guest: getTeamScoresAndPenalties(game.guest, game) };
 
+    var scoreSet = [ {home:0, guest: 0},
+		     {home:0, guest: 0},
+		     {home:0, guest: 0},
+		     {home:0, guest: 0},
+		     {home:0, guest: 0} ];
+    results.home.scores.forEach(function(s) {
+	if(gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")) {
+	    scoreSet[0].home++;
+	}
+	if((gameSecondsFromTime(s.time) >= gameSecondsFromTime(tournament.roundLength + ":00")) &&
+	   (gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")*2)) {
+	    scoreSet[1].home++;
+	}
+	if((gameSecondsFromTime(s.time) >= gameSecondsFromTime(tournament.roundLength + ":00")*2) &&
+	   (gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")*3)) {
+	    scoreSet[2].home++;
+	}
+    });
+    results.guest.scores.forEach(function(s) {
+	if(gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")) {
+	    scoreSet[0].guest++;
+	}
+	if((gameSecondsFromTime(s.time) >= gameSecondsFromTime(tournament.roundLength + ":00")) &&
+	   (gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")*2)) {
+	    scoreSet[1].guest++;
+	}
+	if((gameSecondsFromTime(s.time) >= gameSecondsFromTime(tournament.roundLength + ":00")*2) &&
+	   (gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")*3)) {
+	    scoreSet[2].guest++;
+	}
+    });
+
     var match = { series: tournament.name,
 		  number: game.round,
-		  winner: "",
-		  scores: [],
+		  scores: scoreSet,
 		  officials: game.officials,
 		  referees: game.referees,
 		  timeOut: game.timeOut,
@@ -1439,6 +1470,10 @@ function createPdfResultsPage(filename, game, tournament) {
 
 
     pdfprinter.printSheet(filename, teams, results, match);
+}
+
+function gameSecondsFromTime(time) {
+    return  (parseInt(time.split(":")[0]) * 60) + parseInt(time.split(":")[1]);
 }
 
 function getPlayerListWithScores(teamId, game) {
