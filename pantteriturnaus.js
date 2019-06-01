@@ -1416,10 +1416,10 @@ function createHtmlPositionsPage(tournament) {
 function createPdfResultsPage(filename, game, tournament) {
     var teams = { home:
 		  { name: getTeamNameFromId(game.home),
-		    players: getPlayerListWithScores(game.home, game) },
+		    players: getPlayerListWithScoresAndPenalties(game.home, game) },
 		  guest:
 		  { name: getTeamNameFromId(game.guest),
-		    players: getPlayerListWithScores(game.guest, game) } };
+		    players: getPlayerListWithScoresAndPenalties(game.guest, game) } };
 				    
     var results = { home: getTeamScoresAndPenalties(game.home, game),
 		    guest: getTeamScoresAndPenalties(game.guest, game) };
@@ -1476,24 +1476,30 @@ function gameSecondsFromTime(time) {
     return  (parseInt(time.split(":")[0]) * 60) + parseInt(time.split(":")[1]);
 }
 
-function getPlayerListWithScores(teamId, game) {
+function getPlayerListWithScoresAndPenalties(teamId, game) {
     var team = getTeamPlayers(teamId);
     sortAscendingNumber("number", team);
     var players = [];
     team.forEach(function(p) {
 	var goal = 0;
 	var pass = 0;
+	var penalty = 0;
 	game.scores.forEach(function(s) {
 	    if(p.id === s.scorer) { goal++; }
 	    if(p.id === s.passer) { pass++; }
 	});
-	if(goal === 0) { goal = "";} 
-	if(pass === 0) { pass = "";} 
+	game.penalties.forEach(function(t) {
+	    if(p.id === t.player) { penalty++; }
+	});
+	if(goal === 0) { goal = ""; }
+	if(pass === 0) { pass = ""; }
+	if(penalty === 0) { penalty = ""; }
 	players.push({ name: p.name,
 		       number: p.number,
 		       role: p.role,
 		       goal: goal,
-		       pass: pass });
+		       pass: pass,
+		       penalty: penalty });
     });
     return players;
 }

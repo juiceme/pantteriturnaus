@@ -32,16 +32,30 @@ function drawPlayers(doc, place, team)
 	offset = 312;
     }
 
+    var removePlayers = 0;
+    var players = [];
+    if(team.players.length > 20) {
+	removePlayers = team.players.length - 20;
+    }
+    team.players.forEach(function(p) {
+	if((removePlayers > 0) && (p.goal === "") &&
+	   (p.pass === "") && (p.penalty === "")) {
+	    // player with no scores or penalties may be discarded
+	    removePlayers--;
+	} else {
+	    players.push(p);
+	}
+    });
     text(doc, team.name, 10, 160, offset);
     offset = offset + 22;
     var i = 0;
-    team.players.forEach(function(t) {
+    players.forEach(function(p) {
 	if(i < 20) {
-	    text(doc, t.number, 7, 87, offset + i * 10);
-	    text(doc, t.role, 7, 106, offset + i * 10);
-	    text(doc, t.name, 7, 130, offset + i * 10);
-	    text(doc, t.goal, 7, 309, offset + i * 10);
-	    text(doc, t.pass, 7, 326, offset + i * 10);
+	    text(doc, p.number, 7, 87, offset + i * 10);
+	    text(doc, p.role, 7, 106, offset + i * 10);
+	    text(doc, p.name, 7, 130, offset + i * 10);
+	    text(doc, p.goal, 7, 309, offset + i * 10);
+	    text(doc, p.pass, 7, 326, offset + i * 10);
 	}
 	i++;
     });
