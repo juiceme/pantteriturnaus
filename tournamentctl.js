@@ -207,6 +207,17 @@ function sendQueryToServer() {
 								 player: process.argv[4] });
 	}
     }
+    if(process.argv[2] === "list-teams") {
+	sendToServerEncrypted("commandGetTeamList", {});
+    }
+    if(process.argv[2] === "list-single-team") {
+	if(process.argv.length !== 4) {
+	    console.log("list-single-team command needs an argument")
+	    process.exit(1);
+	} else {
+	    sendToServerEncrypted("commandGetSingleTeam", { id: process.argv[3] });
+	}
+    }
 }
 
 function handleRawDataSet(dataSet) {
@@ -225,6 +236,17 @@ function handleRawDataSet(dataSet) {
 	dataSet.data.forEach(function(p) {
 	    if(p.role === "") { p.role = "P"; }
 	    console.log(p.id + "," + p.name + "," + p.number + "," + p.role  + "," + p.team);
+	});
+    }
+    if(dataSet.type === "teamList") {
+	dataSet.data.forEach(function(t) {
+	    console.log(t.id + "," + t.name + "," + t.tag);
+	});
+    }
+    if(dataSet.type === "teamPlayerList") {
+	sortAscendingNumber("id", dataSet.data);
+	dataSet.data.forEach(function(p) {
+	    console.log(p.id + "," + p.name + "," + p.number);
 	});
     }
     sendToServerEncrypted("clientStarted", {});

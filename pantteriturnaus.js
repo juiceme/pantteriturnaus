@@ -55,6 +55,10 @@ function handleApplicationMessage(cookie, decryptedMessage) {
 	processCommandDeletePlayerFromList(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "commandModifyPlayerInList") {
 	processCommandModifyPlayerInList(cookie, decryptedMessage.content); }
+    if(decryptedMessage.type === "commandGetTeamList") {
+	processCommandGetTeamList(cookie, decryptedMessage.content); }
+    if(decryptedMessage.type === "commandGetSingleTeam") {
+	processCommandGetSingleTeam(cookie, decryptedMessage.content); }
 }
 
 
@@ -2083,6 +2087,63 @@ function processCommandModifyPlayerInList(cookie, data) {
     } else {
 	framework.servicelog("Console user " + cookie.user.username + " does not have priviliges to modify players");
 	sendConsoleError(cookie, "No permission to modify players");
+    }
+}
+
+function processCommandGetTeamList(cookie, data) {
+    framework.servicelog("Console client #" + cookie.count + " requests team list");
+    if(framework.userHasPrivilige("team-view", cookie.user)) {
+	var teamList = [];
+	datastorage.read("teams").teams.forEach(function(t) {
+	    teamList.push(t);
+	});
+	var sendable = { type: "rawDataMessage",
+			 content: { type: "teamList", data: teamList } };
+	framework.sendCipherTextToClient(cookie, sendable);
+	framework.servicelog("Sent team list to console client");
+    } else {
+	framework.servicelog("Console user " + cookie.user.username + " does not have priviliges to list teams");
+	sendConsoleError(cookie, "No permission to list teams");
+    }
+}
+
+function processCommandGetSingleTeam(cookie, data) {
+    framework.servicelog("Console client #" + cookie.count + " requests single team");
+    if(framework.userHasPrivilige("team-view", cookie.user) &&
+       framework.userHasPrivilige("player-view", cookie.user)) {
+	var id = parseInt(data.id) || 0;
+	if(id > 0) {
+	    var teamFlag = false;
+	    var teamPlayers = [];
+	    var players = datastorage.read("players").players;
+	    datastorage.read("teams").teams.forEach(function(t) {
+		if(id === t.id) {
+		    teamFlag = true;
+		    t.players.forEach(function(p) {
+			players.forEach(function(q) {
+			    if(p === q.id) {
+				teamPlayers.push(q);
+			    }
+			});
+		    });
+		}
+	    });
+	    if(!teamFlag) {
+		framework.servicelog("Team #" + id + " not found in database");
+		sendConsoleError(cookie, "Team does not exist");
+	    } else {
+		var sendable = { type: "rawDataMessage",
+				 content: { type: "teamPlayerList", data: teamPlayers } };
+		framework.sendCipherTextToClient(cookie, sendable);
+		framework.servicelog("Sent single team players to console client");
+	    }
+	} else {
+	    framework.servicelog("Team #" + id + " not found in database");
+	    sendConsoleError(cookie, "Team does not exist");
+	}
+    } else {
+	framework.servicelog("Console user " + cookie.user.username + " does not have priviliges to list team players");
+	sendConsoleError(cookie, "No permission to list teams");
     }
 }
 
