@@ -1,4 +1,5 @@
 var fs = require("fs");
+var readlineSync = require("readline-sync");
 var websocketClient = require("./framework/node_modules/websocket").client;
 var mySocket = new websocketClient();
 var incomingMessageBuffer = "";
@@ -43,7 +44,7 @@ mySocket.on('connect', function(connection) {
 		// login screen is the only object sent over plaintext.
 		// use credentials from the provided file
 		sessionPassword = credentials.password
-		sendToServer('userLogin', { username: credentials.user });
+		sendToServer('userLogin', { username: credentials.username });
 	    }
 	    if(receivable.type === "payload") {
 		// payload is always encrypted, if authentication is not successiful then JSON parsing
@@ -178,39 +179,34 @@ function handleIncomingMessage(defragmentedMessage) {
 }
 
 function sendQueryToServer() {
-    if(process.argv.length < 3) {
-	console.log("You need to give command to execute")
-	process.exit(1);
-    } else {
-	if(process.argv[2] === "list-players") {
-	    sendToServerEncrypted("commandGetPlayerList", {});
+    if(process.argv[2] === "list-players") {
+	sendToServerEncrypted("commandGetPlayerList", {});
+    }
+    if(process.argv[2] === "add-player") {
+	if(process.argv.length !== 4) {
+	    console.log("add-player command needs an argument")
+	    process.exit(1);
+	} else {
+	    sendToServerEncrypted("commandAddPlayerToList", { player: process.argv[3] });
 	}
-	if(process.argv[2] === "add-player") {
-	    if(process.argv.length !== 4) {
-		console.log("add-player command needs an argument")
-		process.exit(1);
-	    } else {
-		sendToServerEncrypted("commandAddPlayerToList", { player: process.argv[3] });
-	    }
+    }
+    if(process.argv[2] === "delete-player") {
+	if(process.argv.length !== 4) {
+	    console.log("delete-player command needs an argument")
+	    process.exit(1);
+	} else {
+	    sendToServerEncrypted("commandDeletePlayerFromList", { id: process.argv[3] });
 	}
-	if(process.argv[2] === "delete-player") {
-	    if(process.argv.length !== 4) {
-		console.log("delete-player command needs an argument")
-		process.exit(1);
-	    } else {
-		sendToServerEncrypted("commandDeletePlayerFromList", { id: process.argv[3] });
-	    }
+    }
+    if(process.argv[2] === "modify-player") {
+	if(process.argv.length !== 5) {
+	    console.log("modify-player command needs two arguments")
+	    process.exit(1);
+	} else {
+	    sendToServerEncrypted("commandModifyPlayerInList", { id: process.argv[3],
+								 player: process.argv[4] });
 	}
-	if(process.argv[2] === "modify-player") {
-	    if(process.argv.length !== 5) {
-		console.log("modify-player command needs two arguments")
-		process.exit(1);
-	    } else {
-		sendToServerEncrypted("commandModifyPlayerInList", { id: process.argv[3],
-								     player: process.argv[4] });
-	    }
-	}
-   }
+    }
 }
 
 function handleRawDataSet(dataSet) {
@@ -230,5 +226,25 @@ function handleRawDataSet(dataSet) {
     process.exit(1);
 }
 
-var credentials = JSON.parse(fs.readFileSync("credentials").toString("utf8"));
+if(process.argv.length < 3) {
+    console.log("You need to give command to execute")
+    process.exit(1);
+}
+
+if(process.argv[2] === "get-credentials") {
+    var username = readlineSync.question("username: ");
+    var password = readlineSync.question("password: ", { hideEchoBack: true });
+    var credentials = { username: sha1.hash(username),
+			password: sha1.hash(password + sha1.hash(username).slice(0,4)) }
+    fs.writeFileSync("./credentials", JSON.stringify(credentials));
+    process.exit(0);
+}
+
+if(fs.existsSync("./credentials") !== true) {
+    console.log("Credentials file is missing");
+    process.exit(1);
+}
+
+var credentials = JSON.parse(fs.readFileSync("./credentials").toString("utf8"));
 mySocket.connect('ws://localhost:8080/');
+
