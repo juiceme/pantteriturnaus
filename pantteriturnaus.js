@@ -1939,6 +1939,21 @@ function processGetAllTournamentsEditHelp(cookie, data) {
 
 // console commands operate on raw data
 
+function sendConsoleAcknowledge(cookie) {
+    var sendable = { type: "rawDataMessage",
+		     content: { type: "commandAcknowledge",
+				data: { status: true } } };
+    framework.sendCipherTextToClient(cookie, sendable);
+}
+
+function sendConsoleError(cookie, error) {
+    var sendable = { type: "rawDataMessage",
+		     content: { type: "commandAcknowledge",
+				data: { status: false,
+					error: error } } };
+    framework.sendCipherTextToClient(cookie, sendable);
+}
+
 function processCommandGetPlayerList(cookie, data) {
     framework.servicelog("Console client #" + cookie.count + " requests player list");
     if(framework.userHasPrivilige("player-view", cookie.user)) {
@@ -1952,9 +1967,7 @@ function processCommandGetPlayerList(cookie, data) {
 	framework.servicelog("Sent player list to console client");
     } else {
 	framework.servicelog("Console user " + cookie.user.username + " does not have priviliges to list players");
-	var sendable = { type: "rawDataMessage",
-			 content: { type: "commandAcknowledge", data: false } };
-	framework.sendCipherTextToClient(cookie, sendable);
+	sendConsoleError(cookie, "No permission to list players");
     }
 }
 
@@ -1972,22 +1985,19 @@ function processCommandAddPlayerToList(cookie, data) {
 	    players.nextId++;
 	    if(datastorage.write("players", players) === false) {
 		framework.servicelog("Updating players database failed");
+		sendConsoleError(cookie, "Database update failed");
 	    } else {
-		var sendable = { type: "rawDataMessage",
-				 content: { type: "commandAcknowledge", data: true } };
-		framework.sendCipherTextToClient(cookie, sendable);
 		framework.servicelog("added new player " + JSON.stringify(newPlayer));
-		return;
+		sendConsoleAcknowledge(cookie);
 	    }
 	} else {
 	    framework.servicelog("Malformed player add request: " + JSON.stringify(data.player.split(",")));
+	    sendConsoleError(cookie, "Malformed player add request");
 	}
     } else {
 	framework.servicelog("Console user " + cookie.user.username + " does not have priviliges to add players");
+	sendConsoleError(cookie, "No permission to add players");
     }
-    var sendable = { type: "rawDataMessage",
-		     content: { type: "commandAcknowledge", data: false } };
-    framework.sendCipherTextToClient(cookie, sendable);
 }
 
 function processCommandDeletePlayerFromList(cookie, data) {
@@ -2006,25 +2016,23 @@ function processCommandDeletePlayerFromList(cookie, data) {
 	    if(deletedPlayer.length > 0) {
 		if(datastorage.write("players", { nextId: nextId, players: newPlayers }) === false) {
 		    framework.servicelog("Updating players database failed");
+		    sendConsoleError(cookie, "Database update failed");
 		} else {
-		    var sendable = { type: "rawDataMessage",
-				     content: { type: "commandAcknowledge", data: true } };
-		    framework.sendCipherTextToClient(cookie, sendable);
+		    sendConsoleAcknowledge(cookie);
 		    framework.servicelog("Deleted player " + JSON.stringify(deletedPlayer));
-		    return;
 		}
 	    } else {
 		framework.servicelog("Player #" + id + " not found in database");
+		sendConsoleError(cookie, "Player does not exist");
 	    }
 	} else {
 	    framework.servicelog("Malformed player delete request: " + JSON.stringify(data.id));
+	    sendConsoleError(cookie, "Malformed player delete request");
 	}
     } else {
 	framework.servicelog("Console user " + cookie.user.username + " does not have priviliges to delete players");
+	sendConsoleError(cookie, "No permission to delete players");
     }
-    var sendable = { type: "rawDataMessage",
-		     content: { type: "commandAcknowledge", data: false } };
-    framework.sendCipherTextToClient(cookie, sendable);
 }
 
 function processCommandModifyPlayerInList(cookie, data) {
@@ -2054,29 +2062,28 @@ function processCommandModifyPlayerInList(cookie, data) {
 		if(replacedPlayer.length > 0) {
 		    if(datastorage.write("players", { nextId: nextId, players: newPlayers }) === false) {
 			framework.servicelog("Updating players database failed");
+			sendConsoleError(cookie, "Database update failed");
 		    } else {
-			var sendable = { type: "rawDataMessage",
-					 content: { type: "commandAcknowledge", data: true } };
-			framework.sendCipherTextToClient(cookie, sendable);
+			sendConsoleAcknowledge(cookie);
 			framework.servicelog("Changed player " + JSON.stringify(replacedPlayer) +
 					     " --> " + JSON.stringify(replacingPlayer));
-			return;
 		    }
 		} else {
 		    framework.servicelog("Player #" + id + " not found in database");
+		    sendConsoleError(cookie, "Player does not exist");
 		}
 	    } else {
-		framework.servicelog("Malformed player add request: " + JSON.stringify(data.player.split(",")));
+		framework.servicelog("Malformed player modify request: " + JSON.stringify(data.player.split(",")));
+		sendConsoleError(cookie, "Malformed player modify request");
 	    }
 	} else {
 	    framework.servicelog("Player #" + id + " not found in database");
+	    sendConsoleError(cookie, "Player does not exist");
 	}
     } else {
-	framework.servicelog("Console user " + cookie.user.username + " does not have priviliges to add players");
+	framework.servicelog("Console user " + cookie.user.username + " does not have priviliges to modify players");
+	sendConsoleError(cookie, "No permission to modify players");
     }
-    var sendable = { type: "rawDataMessage",
-		     content: { type: "commandAcknowledge", data: false } };
-    framework.sendCipherTextToClient(cookie, sendable);
 }
 
 

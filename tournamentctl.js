@@ -158,8 +158,9 @@ function handleIncomingMessage(defragmentedMessage) {
 	sendToServer("loginResponse", cipheredResponce);
     }
 
-    if(defragmentedMessage.type === "unpriviligedLogin") {
-	// we don't care about unpriviliged login
+    if(defragmentedMessage.type === "unpriviligedLogin" && !gotUiResponse) {
+	gotUiResponse = true;
+	sendQueryToServer();
     }
 
     if(defragmentedMessage.type === "showHtmlPage") {
@@ -168,7 +169,6 @@ function handleIncomingMessage(defragmentedMessage) {
 
     if(defragmentedMessage.type === "createUiPage" && !gotUiResponse) {
 	gotUiResponse = true;
-//	console.log("Logged IN");
 	sendQueryToServer();
     }
 
@@ -211,9 +211,14 @@ function sendQueryToServer() {
 
 function handleRawDataSet(dataSet) {
     if(dataSet.type === "commandAcknowledge") {
-	if(dataSet.data === true) { console.log("OK"); }
-	else { console.log("operation FAILED"); }
-	process.exit(1);
+	if(dataSet.data.status === true) {
+	    console.log("OK");
+	    process.exit(0);
+	}
+	else {
+	    console.log("operation FAILED: " + dataSet.data.error );
+	    process.exit(1);
+	}
     }
     if(dataSet.type === "playerList") {
 	sortAscendingNumber("id", dataSet.data);
@@ -223,7 +228,7 @@ function handleRawDataSet(dataSet) {
 	});
     }
     sendToServerEncrypted("clientStarted", {});
-    process.exit(1);
+    process.exit(0);
 }
 
 if(process.argv.length < 3) {
