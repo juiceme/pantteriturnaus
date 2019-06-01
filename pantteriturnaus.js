@@ -202,7 +202,9 @@ function getTeamPlayers(id) {
 function createAdminPanelUserPriviliges() {
     return [ { privilige: "view", code: "v" },
 	     { privilige: "score-edit", code: "se"},
+	     { privilige: "team-view", code: "tv"},
 	     { privilige: "team-edit", code: "te"},
+	     { privilige: "team-delete", code: "td"},
 	     { privilige: "player-view", code: "pv"},
 	     { privilige: "player-edit", code: "pe"},
 	     { privilige: "player-delete", code: "pd"},
@@ -224,7 +226,7 @@ function createTopButtonList(cookie) {
     return [ { button: { text: "Muokkaa Pelaajia", callbackMessage: "getPlayersDataForEdit" },
 	       priviliges: [ "player-view", "player-edit", "player-delete" ] },
 	     { button: { text: "Muokkaa Joukkueita", callbackMessage: "getTeamsDataForEdit" },
-	       priviliges: [ "team-edit", "player-edit" ] },
+	       priviliges: [ "team-view", "team-edit", "team-delete" ] },
 	     { button: { text: "Muokkaa Turnauksia", callbackMessage: "getTournamentsDataForEdit" },
 	       priviliges: [ "tournament-edit" ] } ];
 }
@@ -554,6 +556,7 @@ function processSaveTournamentGameData(cookie, data) {
 // Main player edit UI, list of players
 
 function processGetPlayersDataForEdit(cookie, content) {
+    framework.servicelog("Client #" + cookie.count + " requests players edit");
     if(framework.userHasPrivilige("player-view", cookie.user) ||
        framework.userHasPrivilige("player-edit", cookie.user) ||
        framework.userHasPrivilige("player-delete", cookie.user)) {
@@ -755,7 +758,9 @@ function processSaveAllPlayersData(cookie, content) {
 
 function processGetTeamsDataForEdit(cookie, content) {
     framework.servicelog("Client #" + cookie.count + " requests teams edit");
-    if(framework.userHasPrivilige("team-edit", cookie.user) || framework.userHasPrivilige("player-edit", cookie.user)) {
+    if(framework.userHasPrivilige("team-view", cookie.user) ||
+       framework.userHasPrivilige("team-edit", cookie.user) ||
+       framework.userHasPrivilige("team-delete", cookie.user)) {
 	var topButtonList = framework.createTopButtons(cookie);
 	var items = [];
 	var frameList;
@@ -763,19 +768,17 @@ function processGetTeamsDataForEdit(cookie, content) {
 	datastorage.read("teams").teams.forEach(function(t) {
 	    var tagNode = framework.createUiTextNode(t.id, t.tag);
 	    var nameNode = framework.createUiTextNode("name", t.name);
-	    var buttonNode = buttonNode = framework.createUiMessageButton("Muokkaa", "getSingleTeamForEdit", t.id, false);
-	    if(framework.userHasPrivilige("player-edit", cookie.user)) {
-		buttonNode = framework.createUiMessageButton("Muokkaa", "getSingleTeamForEdit", t.id, true);
-	    }
+	    var buttonNode = framework.createUiMessageButton("Muokkaa", "getSingleTeamForEdit", t.id, false);
 	    if( framework.userHasPrivilige("team-edit", cookie.user))	{
 		tagNode = framework.createUiInputField(t.id, t.tag, 15, false);
 		nameNode = framework.createUiInputField("name", t.name, 15, false);
+		buttonNode = framework.createUiMessageButton("Muokkaa", "getSingleTeamForEdit", t.id, true);
 	    }
 	    items.push([ [ tagNode ],
 			 [ nameNode ],
 			 [ buttonNode ] ]);
 	});
-	if(framework.userHasPrivilige("team-edit", cookie.user)) {
+	if(framework.userHasPrivilige("team-delete", cookie.user)) {
 	    var itemList = { title: "Teams",
 			     frameId: 0,
 			     header: [ [ [ framework.createUiHtmlCell("", "") ],
@@ -789,6 +792,27 @@ function processGetTeamsDataForEdit(cookie, content) {
 	    frameList = [ { frameType: "editListFrame", frame: itemList } ];
 	    buttonList = [ { id: 501, text: "OK", callbackMessage: "saveAllTeamsData" },
 			   { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ];
+	} else if(framework.userHasPrivilige("team-edit", cookie.user)) {
+	    var itemList = { title: "Teams",
+			     frameId: 0,
+			     header: [ [ [ framework.createUiHtmlCell("", "<b>Team ID</b>") ],
+					 [ framework.createUiHtmlCell("", "<b>Team Name</b>") ],
+					 [ framework.createUiHtmlCell("", "") ] ] ],
+			     items: items };
+	    var newItemList = { title: "New Teams",
+				frameId: 1,
+				header: [ [ [ framework.createUiHtmlCell("", "<b>Team ID</b>") ],
+					    [ framework.createUiHtmlCell("", "<b>Team Name</b>") ],
+					    [ framework.createUiHtmlCell("", "") ] ] ],
+				items: [],
+				newItem: [ [ framework.createUiInputField("tag", "<name>", 15, false) ],
+					   [ framework.createUiInputField("name", "<x>", 15, false) ],
+					   [ framework.createUiTextNode("", "") ] ] };
+
+	    var frameList = [ { frameType: "fixedListFrame", frame: itemList },
+			      { frameType: "editListFrame", frame: newItemList } ];
+	    var buttonList = [ { id: 501, text: "OK", callbackMessage: "saveAllTeamsData" },
+			       { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ];
 	} else {
 	    var itemList = { title: "Teams",
 			     frameId: 0,
@@ -796,8 +820,8 @@ function processGetTeamsDataForEdit(cookie, content) {
 					 [ framework.createUiHtmlCell("", "<b>Team Name</b>") ],
 					 [ framework.createUiHtmlCell("", "") ] ] ],
 			     items: items };
-	    frameList = [ { frameType: "fixedListFrame", frame: itemList } ];
-	    buttonList = [ { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ];
+	    var frameList = [ { frameType: "fixedListFrame", frame: itemList } ];
+	    var buttonList = [ { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ];
 	}
 	var sendable = { type: "createUiPage",
 			 content: { topButtonList: topButtonList,
@@ -856,7 +880,8 @@ function processSaveAllTeamsData(cookie, data) {
 
 function processGetSingleTeamForEdit(cookie, data) {
     framework.servicelog("Client #" + cookie.count + " requests team data for editing.");
-    if(framework.userHasPrivilige("team-edit", cookie.user)) {
+    if(framework.userHasPrivilige("team-view", cookie.user) ||
+       framework.userHasPrivilige("team-edit", cookie.user)) {
 	var topButtonList = framework.createTopButtons(cookie);
 	var items = [];
 	datastorage.read("teams").teams.forEach(function(t) {
@@ -866,19 +891,27 @@ function processGetSingleTeamForEdit(cookie, data) {
 		});
 	    }
 	});
-	var itemList = { title: getTeamTagFromId(data.buttonData),
-			 frameId: 0,
-			 header: [ [ [ framework.createUiHtmlCell("", "<b>Player</b>") ] ] ],
-			 items: items,
-			 newItem: [ [ createAllPlayersSelector("") ] ] };
-
-	var frameList = [ { frameType: "editListFrame", frame: itemList } ];
+	if(framework.userHasPrivilige("team-edit", cookie.user)) {
+	    var itemList = { title: getTeamTagFromId(data.buttonData),
+			     frameId: 0,
+			     header: [ [ [ framework.createUiHtmlCell("", "<b>Player</b>") ] ] ],
+			     items: items,
+			     newItem: [ [ createAllPlayersSelector("") ] ] };
+	    var frameList = [ { frameType: "editListFrame", frame: itemList } ];
+	    var buttonList = [ { id: 501, text: "OK", callbackMessage: "saveSingleTeamData", data: data.buttonData },
+			       { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ]
+	} else {
+	    var itemList = { title: getTeamTagFromId(data.buttonData),
+			     frameId: 0,
+			     header: [ [ [ framework.createUiHtmlCell("", "<b>Player</b>") ] ] ],
+			     items: items }
+	    var frameList = [ { frameType: "fixedListFrame", frame: itemList } ];
+	    var buttonList = [ { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ];
+	}
 	var sendable = { type: "createUiPage",
 			 content: { topButtonList: topButtonList,
 				    frameList: frameList,
-				    buttonList: [ { id: 501, text: "OK", callbackMessage: "saveSingleTeamData", data: data.buttonData },
-						  { id: 502, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
-
+				    buttonList: buttonList } };
 	framework.sendCipherTextToClient(cookie, sendable);
 	framework.servicelog("Sent NEW teamData to client #" + cookie.count);
     } else {
