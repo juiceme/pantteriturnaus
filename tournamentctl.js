@@ -10,6 +10,37 @@ Aes.Ctr = require('./framework/crypto/aes-ctr.js');
 var myConnection;
 var sessionPassword;
 
+var cmdList = [ { cmd: "get-credentials",
+		  func: null,
+		  args: 3,
+		  help: "",
+		  err: "Command does not take arguments" },
+                { cmd: "list-players",
+		  func: { operation: "commandGetPlayerList", argumentList: [] },
+		  args: 3,
+		  help: "",
+		  err: "Command does not take arguments" },
+		{ cmd: "add-player",
+		  func: { operation: "commandAddPlayerToList", argumentList: [ "player" ] },
+		  args: 4,
+		  help: "<name,number,role,team>",
+		  err: "Command takes player string as argument" },
+		{ cmd: "delete-player",
+		  func: { operation: "commandDeletePlayerFromList", argumentList: [ "id" ] },
+		  args: 4,
+		  help: "<player ID>",
+		  err: "Command takes player ID as argument" },
+		{ cmd: "modify-player",
+		  func: { operation: "commandModifyPlayerInList", argumentList: [ "id", "player" ] },
+		  args: 5,
+		  help: "<player ID> <name,number,role,team>",
+		  err: "Command takes player ID and player string as arguments" },
+		{ cmd: "list-teams",
+		  func: { operation: "commandGetTeamList", argumentList: [] },
+		  args: 3,
+		  help: "",
+		  err: "Command does not take arguments" } ];
+
 mySocket.on('connectFailed', function(error) {
     if(error.code === "ECONNREFUSED") {
 	console.log("Could not connect to server")
@@ -179,44 +210,44 @@ function handleIncomingMessage(defragmentedMessage) {
 }
 
 function sendQueryToServer() {
-    if(process.argv[2] === "list-players") {
-	sendToServerEncrypted("commandGetPlayerList", {});
-    }
-    if(process.argv[2] === "add-player") {
-	if(process.argv.length !== 4) {
-	    console.log("add-player command needs an argument")
-	    process.exit(1);
-	} else {
-	    sendToServerEncrypted("commandAddPlayerToList", { player: process.argv[3] });
+    cmdFlag = false;
+    cmdList.forEach(function(c) {
+	if(c.cmd === process.argv[2]) {
+	    cmdFlag = true;
+	    if(c.args === 3) {
+		if(process.argv.length === 3) {
+		    sendToServerEncrypted(c.func.operation, {});
+		} else {
+		    console.log("error: " + c.err);
+		    process.exit(1);
+		}
+	    }
+	    if(c.args === 4) {
+		if(process.argv.length === 4) {
+		    var option = {};
+		    option[c.func.argumentList[0]] = process.argv[3];
+		    sendToServerEncrypted(c.func.operation, option);
+		} else {
+		    console.log("error: " + c.err);
+		    process.exit(1);
+		}
+	    }
+	    if(c.args === 5) {
+		if(process.argv.length === 5) {
+		    var option = {};
+		    option[c.func.argumentList[0]] = process.argv[3];
+		    option[c.func.argumentList[1]] = process.argv[4];
+		    sendToServerEncrypted(c.func.operation, option);
+		} else {
+		    console.log("error: " + c.err);
+		    process.exit(1);
+		}
+	    }
 	}
-    }
-    if(process.argv[2] === "delete-player") {
-	if(process.argv.length !== 4) {
-	    console.log("delete-player command needs an argument")
-	    process.exit(1);
-	} else {
-	    sendToServerEncrypted("commandDeletePlayerFromList", { id: process.argv[3] });
-	}
-    }
-    if(process.argv[2] === "modify-player") {
-	if(process.argv.length !== 5) {
-	    console.log("modify-player command needs two arguments")
-	    process.exit(1);
-	} else {
-	    sendToServerEncrypted("commandModifyPlayerInList", { id: process.argv[3],
-								 player: process.argv[4] });
-	}
-    }
-    if(process.argv[2] === "list-teams") {
-	sendToServerEncrypted("commandGetTeamList", {});
-    }
-    if(process.argv[2] === "list-single-team") {
-	if(process.argv.length !== 4) {
-	    console.log("list-single-team command needs an argument")
-	    process.exit(1);
-	} else {
-	    sendToServerEncrypted("commandGetSingleTeam", { id: process.argv[3] });
-	}
+    });
+    if(!cmdFlag) {
+	console.log("error: Unknown command")
+	process.exit(1);
     }
 }
 
@@ -254,16 +285,26 @@ function handleRawDataSet(dataSet) {
 }
 
 if(process.argv.length < 3) {
-    console.log("You need to give command to execute")
+    console.log("\n  Console tool to access tournament server")
+    console.log("  Usage: \'node tournamentctl.js <command> [arguments]\'\n");
+    console.log("  Commands:");
+    cmdList.forEach(function(c) {
+	var filler = "                     ".substring(0, 20 - c.cmd.length);
+	console.log("    " + c.cmd + filler + c.help);
+    });
+    console.log();
     process.exit(1);
 }
 
 if(process.argv[2] === "get-credentials") {
+    var server = readlineSync.question("server address:port: ");
     var username = readlineSync.question("username: ");
     var password = readlineSync.question("password: ", { hideEchoBack: true });
-    var credentials = { username: sha1.hash(username),
+    var credentials = { server: server,
+			username: sha1.hash(username),
 			password: sha1.hash(password + sha1.hash(username).slice(0,4)) }
     fs.writeFileSync("./credentials", JSON.stringify(credentials));
+    console.log("Created new credentials")
     process.exit(0);
 }
 
@@ -273,5 +314,4 @@ if(fs.existsSync("./credentials") !== true) {
 }
 
 var credentials = JSON.parse(fs.readFileSync("./credentials").toString("utf8"));
-mySocket.connect('ws://localhost:8080/');
-
+mySocket.connect("ws://" + credentials.server + "/");
