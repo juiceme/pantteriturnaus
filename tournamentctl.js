@@ -39,7 +39,23 @@ var cmdList = [ { cmd: "get-credentials",
 		  func: { operation: "commandGetTeamList", argumentList: [] },
 		  args: 3,
 		  help: "",
-		  err: "Command does not take arguments" } ];
+		  err: "Command does not take arguments" },
+		{ cmd: "list-single-team",
+		  func: { operation: "commandListSingleTeam", argumentList: [ "id" ] },
+		  args: 4,
+		  help: "<team ID>",
+		  err: "Command takes team ID as argument" },
+		{ cmd: "add-team-player",
+		  func: { operation: "commandAddTeamPlayer", argumentList: [ "teamId", "playerId" ] },
+		  args: 5,
+		  help: "<team ID> <player ID>",
+		  err: "Command takes team ID and player ID as arguments" },
+
+		{ cmd: "delete-team-player",
+		  func: { operation: "commandDeleteTeamPlayer", argumentList: [ "teamId", "playerId" ] },
+		  args: 5,
+		  help: "<team ID> <player ID>",
+		  err: "Command takes team ID and player ID as arguments" } ];
 
 mySocket.on('connectFailed', function(error) {
     if(error.code === "ECONNREFUSED") {

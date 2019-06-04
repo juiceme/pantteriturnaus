@@ -57,8 +57,12 @@ function handleApplicationMessage(cookie, decryptedMessage) {
 	processCommandModifyPlayerInList(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "commandGetTeamList") {
 	processCommandGetTeamList(cookie, decryptedMessage.content); }
-    if(decryptedMessage.type === "commandGetSingleTeam") {
-	processCommandGetSingleTeam(cookie, decryptedMessage.content); }
+    if(decryptedMessage.type === "commandListSingleTeam") {
+	processCommandListSingleTeam(cookie, decryptedMessage.content); }
+    if(decryptedMessage.type === "commandAddTeamPlayer") {
+	processCommandAddTeamPlayer(cookie, decryptedMessage.content); }
+    if(decryptedMessage.type === "commandDeleteTeamPlayer") {
+	processCommandDeleteTeamPlayer(cookie, decryptedMessage.content); }
 }
 
 
@@ -206,6 +210,22 @@ function getTeamPlayers(id) {
 	}
     });
     return playerList;
+}
+
+function getTeamById(id) {
+    var team = {};
+    var teamFlag = false;
+    datastorage.read("teams").teams.forEach(function(t) {
+	if(t.id === id) {
+	    teamFlag = true;
+	    team.id = t.id;
+	    team.name = t.name;
+	    team.players = t.players;
+	    team.tag = t.tag;
+	}
+    });
+    if(teamFlag) { return team; }
+    else { return null; }
 }
 
 
@@ -1979,24 +1999,24 @@ function processCommandAddPlayerToList(cookie, data) {
     framework.servicelog("Console client #" + cookie.count + " requests adding a player to list");
     if(framework.userHasPrivilige("player-edit", cookie.user)) {
 	newPlayer = data.player.split(",");
-	if(newPlayer.length === 4) {
-	    var players = datastorage.read("players");
-	    players.players.push( { id: players.nextId,
-				    name: newPlayer[0],
-				    number: newPlayer[1],
-				    role: newPlayer[2],
-				    team: newPlayer[3] } );
-	    players.nextId++;
-	    if(datastorage.write("players", players) === false) {
-		framework.servicelog("Updating players database failed");
-		sendConsoleError(cookie, "Database update failed");
-	    } else {
-		framework.servicelog("added new player " + JSON.stringify(newPlayer));
-		sendConsoleAcknowledge(cookie);
-	    }
-	} else {
+	if(newPlayer.length !== 4) {
 	    framework.servicelog("Malformed player add request: " + JSON.stringify(data.player.split(",")));
 	    sendConsoleError(cookie, "Malformed player add request");
+	    return;
+	}
+	var players = datastorage.read("players");
+	players.players.push( { id: players.nextId,
+				name: newPlayer[0],
+				number: newPlayer[1],
+				role: newPlayer[2],
+				team: newPlayer[3] } );
+	players.nextId++;
+	if(datastorage.write("players", players) === false) {
+	    framework.servicelog("Updating players database failed");
+	    sendConsoleError(cookie, "Database update failed");
+	} else {
+	    framework.servicelog("added new player " + JSON.stringify(newPlayer));
+	    sendConsoleAcknowledge(cookie);
 	}
     } else {
 	framework.servicelog("Console user " + cookie.user.username + " does not have priviliges to add players");
@@ -2008,30 +2028,25 @@ function processCommandDeletePlayerFromList(cookie, data) {
     framework.servicelog("Console client #" + cookie.count + " requests deleting a player from list");
     if(framework.userHasPrivilige("player-delete", cookie.user)) {
 	var id = parseInt(data.id) || 0;
-	if(id > 0) {
-	    var newPlayers = [];
-	    var deletedPlayer = [];
-	    var oldPlayers = datastorage.read("players");
-	    var nextId = oldPlayers.nextId;
-	    oldPlayers.players.forEach(function(p) {
-		if(p.id !== id) { newPlayers.push(p); }
-		else { deletedPlayer.push(p) }
-	    });
-	    if(deletedPlayer.length > 0) {
-		if(datastorage.write("players", { nextId: nextId, players: newPlayers }) === false) {
-		    framework.servicelog("Updating players database failed");
-		    sendConsoleError(cookie, "Database update failed");
-		} else {
-		    sendConsoleAcknowledge(cookie);
-		    framework.servicelog("Deleted player " + JSON.stringify(deletedPlayer));
-		}
-	    } else {
-		framework.servicelog("Player #" + id + " not found in database");
-		sendConsoleError(cookie, "Player does not exist");
-	    }
+	if(getPlayerNameById(id).length === 0) {
+	    framework.servicelog("Player #" + id + " not found in database");
+	    sendConsoleError(cookie, "Player does not exist");
+	    return;
+	}
+	var newPlayers = [];
+	var deletedPlayer = [];
+	var oldPlayers = datastorage.read("players");
+	var nextId = oldPlayers.nextId;
+	oldPlayers.players.forEach(function(p) {
+	    if(p.id !== id) { newPlayers.push(p); }
+	    else { deletedPlayer.push(p) }
+	});
+	if(datastorage.write("players", { nextId: nextId, players: newPlayers }) === false) {
+	    framework.servicelog("Updating players database failed");
+	    sendConsoleError(cookie, "Database update failed");
 	} else {
-	    framework.servicelog("Malformed player delete request: " + JSON.stringify(data.id));
-	    sendConsoleError(cookie, "Malformed player delete request");
+	    sendConsoleAcknowledge(cookie);
+	    framework.servicelog("Deleted player " + JSON.stringify(deletedPlayer));
 	}
     } else {
 	framework.servicelog("Console user " + cookie.user.username + " does not have priviliges to delete players");
@@ -2043,46 +2058,40 @@ function processCommandModifyPlayerInList(cookie, data) {
     framework.servicelog("Console client #" + cookie.count + " requests editing a player");
     if(framework.userHasPrivilige("player-edit", cookie.user)) {
 	var id = parseInt(data.id) || 0;
-	if(id > 0) {
-	    newPlayerDetails = data.player.split(",");
-	    if(newPlayerDetails.length === 4) {
-		var newPlayers = [];
-		var replacedPlayer = [];
-		var replacingPlayer = { id: id,
-					name: newPlayerDetails[0],
-					number: newPlayerDetails[1],
-					role: newPlayerDetails[2],
-					team: newPlayerDetails[3] };
-		var oldPlayers = datastorage.read("players");
-		var nextId = oldPlayers.nextId;
-		oldPlayers.players.forEach(function(p) {
-		    if(p.id !== id) {
-			newPlayers.push(p);
-		    } else {
-			replacedPlayer.push(p);
-			newPlayers.push(replacingPlayer);
-		    }
-		});
-		if(replacedPlayer.length > 0) {
-		    if(datastorage.write("players", { nextId: nextId, players: newPlayers }) === false) {
-			framework.servicelog("Updating players database failed");
-			sendConsoleError(cookie, "Database update failed");
-		    } else {
-			sendConsoleAcknowledge(cookie);
-			framework.servicelog("Changed player " + JSON.stringify(replacedPlayer) +
-					     " --> " + JSON.stringify(replacingPlayer));
-		    }
-		} else {
-		    framework.servicelog("Player #" + id + " not found in database");
-		    sendConsoleError(cookie, "Player does not exist");
-		}
-	    } else {
-		framework.servicelog("Malformed player modify request: " + JSON.stringify(data.player.split(",")));
-		sendConsoleError(cookie, "Malformed player modify request");
-	    }
-	} else {
+	if(getPlayerNameById(id).length === 0) {
 	    framework.servicelog("Player #" + id + " not found in database");
 	    sendConsoleError(cookie, "Player does not exist");
+	    return;
+	}
+	newPlayerDetails = data.player.split(",");
+	if(newPlayerDetails.length !== 4) {
+	    framework.servicelog("Malformed player modify request: " + JSON.stringify(data.player.split(",")));
+	    sendConsoleError(cookie, "Malformed player modify request");
+	    return;
+	}
+	var newPlayers = [];
+	var replacedPlayer = [];
+	var replacingPlayer = { id: id,
+				name: newPlayerDetails[0],
+				number: newPlayerDetails[1],
+				role: newPlayerDetails[2],
+				team: newPlayerDetails[3] };
+	var oldPlayers = datastorage.read("players");
+	var nextId = oldPlayers.nextId;
+	oldPlayers.players.forEach(function(p) {
+	    if(p.id !== id) { newPlayers.push(p); }
+	    else {
+		replacedPlayer.push(p);
+		newPlayers.push(replacingPlayer);
+	    }
+	});
+	if(datastorage.write("players", { nextId: nextId, players: newPlayers }) === false) {
+	    framework.servicelog("Updating players database failed");
+	    sendConsoleError(cookie, "Database update failed");
+	} else {
+	    sendConsoleAcknowledge(cookie);
+	    framework.servicelog("Changed player " + JSON.stringify(replacedPlayer) +
+				 " --> " + JSON.stringify(replacingPlayer));
 	}
     } else {
 	framework.servicelog("Console user " + cookie.user.username + " does not have priviliges to modify players");
@@ -2107,43 +2116,151 @@ function processCommandGetTeamList(cookie, data) {
     }
 }
 
-function processCommandGetSingleTeam(cookie, data) {
+function processCommandListSingleTeam(cookie, data) {
     framework.servicelog("Console client #" + cookie.count + " requests single team");
     if(framework.userHasPrivilige("team-view", cookie.user) &&
        framework.userHasPrivilige("player-view", cookie.user)) {
 	var id = parseInt(data.id) || 0;
-	if(id > 0) {
-	    var teamFlag = false;
-	    var teamPlayers = [];
-	    var players = datastorage.read("players").players;
-	    datastorage.read("teams").teams.forEach(function(t) {
-		if(id === t.id) {
-		    teamFlag = true;
-		    t.players.forEach(function(p) {
-			players.forEach(function(q) {
-			    if(p === q.id) {
-				teamPlayers.push(q);
-			    }
-			});
-		    });
-		}
-	    });
-	    if(!teamFlag) {
-		framework.servicelog("Team #" + id + " not found in database");
-		sendConsoleError(cookie, "Team does not exist");
-	    } else {
-		var sendable = { type: "rawDataMessage",
-				 content: { type: "teamPlayerList", data: teamPlayers } };
-		framework.sendCipherTextToClient(cookie, sendable);
-		framework.servicelog("Sent single team players to console client");
-	    }
-	} else {
+	if(getTeamById(id) === null) {
 	    framework.servicelog("Team #" + id + " not found in database");
 	    sendConsoleError(cookie, "Team does not exist");
+	    return;
+	}
+	var teamFlag = false;
+	var teamPlayers = [];
+	var players = datastorage.read("players").players;
+	datastorage.read("teams").teams.forEach(function(t) {
+	    if(id === t.id) {
+		teamFlag = true;
+		t.players.forEach(function(p) {
+		    players.forEach(function(q) {
+			if(p === q.id) {
+			    teamPlayers.push(q);
+			}
+		    });
+		});
+	    }
+	});
+	if(!teamFlag) {
+	    framework.servicelog("Team #" + id + " not found in database");
+	    sendConsoleError(cookie, "Team does not exist");
+	} else {
+	    var sendable = { type: "rawDataMessage",
+			     content: { type: "teamPlayerList", data: teamPlayers } };
+	    framework.sendCipherTextToClient(cookie, sendable);
+	    framework.servicelog("Sent single team players to console client");
 	}
     } else {
 	framework.servicelog("Console user " + cookie.user.username + " does not have priviliges to list team players");
 	sendConsoleError(cookie, "No permission to list teams");
+    }
+}
+
+function processCommandAddTeamPlayer(cookie, data) {
+    framework.servicelog("Console client #" + cookie.count + " requests adding player to team");
+    if(framework.userHasPrivilige("team-edit", cookie.user) &&
+       framework.userHasPrivilige("player-view", cookie.user)) {
+	var teamId = parseInt(data.teamId) || 0;
+	if(getTeamById(teamId) === null) {
+	    framework.servicelog("Team #" + teamId + " not found in database");
+	    sendConsoleError(cookie, "Team does not exist");
+	    return;
+	}
+	var playerId = parseInt(data.playerId) || 0;
+	if(getPlayerNameById(playerId).length === 0) {
+	    framework.servicelog("Player #" + playerId + " not found in database");
+	    sendConsoleError(cookie, "Player does not exist");
+	    return;
+	}
+	var teamFlag = false;
+	var extraPlayerFlag = false;
+	var newTeams = [];
+	var newPlayers = [];
+	var nextId = datastorage.read("teams").nextId;
+	datastorage.read("teams").teams.forEach(function(t) {
+	    if(t.id === teamId) {
+		teamFlag = true;
+		t.players.forEach(function(p) {
+		    newPlayers.push(p);
+		    if(p === playerId) { extraPlayerFlag = true; }
+		});
+		if(!extraPlayerFlag) { newPlayers.push(playerId); }
+		newTeams.push( { id: teamId,
+				 name: t.name,
+				 tag: t.tag,
+				 players: newPlayers } );
+	    } else { newTeams.push(t); }
+	});
+	if(extraPlayerFlag) {
+	    framework.servicelog("Player #" + playerId + " is already in team #" + teamId);
+	    sendConsoleError(cookie, "Player is already in team");
+	    return;
+	} else {
+	    if(datastorage.write("teams", { nextId: nextId, teams: newTeams }) === false) {
+		framework.servicelog("Updating players database failed");
+		sendConsoleError(cookie, "Database update failed");
+	    } else {
+		sendConsoleAcknowledge(cookie);
+		framework.servicelog("Added player #" + playerId + " to team #" + teamId);
+		return;
+	    }
+	}
+    } else {
+	framework.servicelog("Console user " + cookie.user.username + " does not have priviliges to edit teams");
+	sendConsoleError(cookie, "No permission to edit teams");
+    }
+}
+
+function processCommandDeleteTeamPlayer(cookie, data) {
+    framework.servicelog("Console client #" + cookie.count + " requests deleting player from team");
+    if(framework.userHasPrivilige("team-edit", cookie.user) &&
+       framework.userHasPrivilige("player-view", cookie.user)) {
+	var teamId = parseInt(data.teamId) || 0;
+	if(getTeamById(teamId) === null) {
+	    framework.servicelog("Team #" + teamId + " not found in database");
+	    sendConsoleError(cookie, "Team does not exist");
+	    return;
+	}
+	var playerId = parseInt(data.playerId) || 0;
+	if(getPlayerNameById(playerId).length === 0) {
+	    framework.servicelog("Player #" + playerId + " not found in database");
+	    sendConsoleError(cookie, "Player does not exist");
+	    return;
+	}
+	var playerFlag = false;
+	getTeamPlayers(teamId).forEach(function(p) {
+	    if(p.id === playerId) { playerFlag = true; }
+	});
+	if(!playerFlag) {
+	    framework.servicelog("Player #" + playerId + " not found in team #" + teamId);
+	    sendConsoleError(cookie, "Player is not in team");
+	    return;
+	}
+	var newTeams = [];
+	var newPlayers = [];
+	var nextId = datastorage.read("teams").nextId;
+	datastorage.read("teams").teams.forEach(function(t) {
+	    if(t.id === teamId) {
+		t.players.forEach(function(p) {
+		    if(p !== playerId) { newPlayers.push(p); }
+		});
+		newTeams.push( { id: teamId,
+				 name: t.name,
+				 tag: t.tag,
+				 players: newPlayers } );
+	    } else { newTeams.push(t); }
+	});
+	if(datastorage.write("teams", { nextId: nextId, teams: newTeams }) === false) {
+	    framework.servicelog("Updating players database failed");
+	    sendConsoleError(cookie, "Database update failed");
+	} else {
+	    sendConsoleAcknowledge(cookie);
+	    framework.servicelog("deleted player #" + playerId + " from team #" + teamId);
+	    return;
+	}
+    } else {
+	framework.servicelog("Console user " + cookie.user.username + " does not have priviliges to edit teams");
+	sendConsoleError(cookie, "No permission to edit teams");
     }
 }
 
