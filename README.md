@@ -23,11 +23,13 @@ The repository also clones AES library and datastorage as submodules, You need t
 * Web frontend to manage tournaments, manage teams/users and input game scores.
 * Uses AES-CTR encryption between server and client to defeat man-in-the-middle attacks.
 * Automatic creation of game statistics and top-shooters as html tables
-  
+* Automatic creation of official game minutes in PDF format.
+* Console frontend for batch mode editing etc. 
+
 ## Coming soon!
 
 * Probably more enhancements as I think them up :)
-    
+
 ## Documentation
 
 None whatsoever :)
