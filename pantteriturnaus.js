@@ -381,6 +381,10 @@ function processSaveAllTournamentsData(cookie, data) {
 					  id: t.id,
 					  outputFile: t.outputFile,
 					  locked: t.locked,
+					  roundLength: u.roundLength,
+					  date: u.date,
+					  venue: u.venue,
+					  spectators: u.spectators,
 					  games: u.games });
 		}
 	    });
@@ -389,6 +393,10 @@ function processSaveAllTournamentsData(cookie, data) {
 				      id: nextId++,
 				      outputFile: t.outputFile,
 				      locked: t.locked,
+				      roundLength: 20,
+				      date: "",
+				      venue: "",
+				      spectators: "Vapaa pääsy",
 				      games: [] });
 	    }
 	});
@@ -2251,7 +2259,6 @@ function updateDatabaseVersionTo_6() {
 }
 
 function updateDatabaseVersionTo_7() {
-    console.log(JSON.stringify(datastorage.read("tournaments")));
     datastorage.read("tournaments").tournaments.forEach(function(t) {
 	datastorage.initialize(t, {});
 	var tournament = datastorage.read(t).tournament;
