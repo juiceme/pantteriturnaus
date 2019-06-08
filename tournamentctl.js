@@ -281,8 +281,7 @@ function handleRawDataSet(dataSet) {
     if(dataSet.type === "playerList") {
 	sortAscendingNumber("id", dataSet.data);
 	dataSet.data.forEach(function(p) {
-	    if(p.role === "") { p.role = "P"; }
-	    console.log(p.id + "," + p.name + "," + p.number + "," + p.role  + "," + p.team);
+	    console.log(p.id + "\t" + p.name + "," + p.number + "," + p.role  + "," + p.team);
 	});
     }
     if(dataSet.type === "teamList") {
@@ -291,9 +290,10 @@ function handleRawDataSet(dataSet) {
 	});
     }
     if(dataSet.type === "teamPlayerList") {
-	sortAscendingNumber("id", dataSet.data);
+	sortAscendingNumber("number", dataSet.data);
 	dataSet.data.forEach(function(p) {
-	    console.log(p.id + "," + p.name + "," + p.number);
+	    if(p.role === "") { console.log(p.id + "\t" + p.name + "," + p.number); }
+	    else { console.log(p.id + "\t" + p.name + "," + p.number + "," + p.role); }
 	});
     }
     sendToServerEncrypted("clientStarted", {});
