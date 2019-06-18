@@ -69,13 +69,24 @@ function drawScores(doc, place, scores)
     }
 
     var i = 1;
+    var j = 1;
     scores.forEach(function(s) {
-	text(doc, i, 7, 341, offset + i * 10);
-	text(doc, s.time, 7, 360, offset + i * 10);
-	text(doc, s.goal, 7, 386, offset + i * 10);
-	text(doc, s.pass, 7, 402, offset + i * 10);
-	text(doc, s.code, 7, 418, offset + i * 10);
+	if(s.code === "RL -") {
+	    text(doc, "-", 7, 341, offset + j * 10);
+	    i--;
+	} else {
+	    text(doc, i, 7, 341, offset + j * 10);
+	}
+	text(doc, s.time, 7, 360, offset + j * 10);
+	text(doc, s.goal, 7, 386, offset + j * 10);
+	text(doc, s.pass, 7, 402, offset + j * 10);
+	if((s.code === "RL -") || (s.code === "RL OK")) {
+	    text(doc, "RL", 7, 418, offset + j * 10);
+	} else {
+	    text(doc, s.code, 7, 418, offset + j * 10);
+	}
 	i++;
+	j++;
     });
 }
 

@@ -1269,7 +1269,8 @@ function createScoreTypes() {
 	     "YV",
 	     "AV",
 	     "TV",
-	     "RL",
+	     "RL OK",
+	     "RL -",
 	     "SR",
 	     "OM",
 	     "TM" ];
@@ -1486,29 +1487,35 @@ function createPdfResultsPage(filename, game, tournament) {
 		     {home:0, guest: 0},
 		     {home:0, guest: 0} ];
     results.home.scores.forEach(function(s) {
-	if(gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")) {
-	    scoreSet[0].home++;
-	}
-	if((gameSecondsFromTime(s.time) >= gameSecondsFromTime(tournament.roundLength + ":00")) &&
-	   (gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")*2)) {
-	    scoreSet[1].home++;
-	}
-	if((gameSecondsFromTime(s.time) >= gameSecondsFromTime(tournament.roundLength + ":00")*2) &&
-	   (gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")*3)) {
-	    scoreSet[2].home++;
+	if(s.code === "RL -") { // no score for failed penalty shot
+	} else {
+	    if(gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")) {
+		scoreSet[0].home++;
+	    }
+	    if((gameSecondsFromTime(s.time) >= gameSecondsFromTime(tournament.roundLength + ":00")) &&
+	       (gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")*2)) {
+		scoreSet[1].home++;
+	    }
+	    if((gameSecondsFromTime(s.time) >= gameSecondsFromTime(tournament.roundLength + ":00")*2) &&
+	       (gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")*3)) {
+		scoreSet[2].home++;
+	    }
 	}
     });
     results.guest.scores.forEach(function(s) {
-	if(gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")) {
-	    scoreSet[0].guest++;
-	}
-	if((gameSecondsFromTime(s.time) >= gameSecondsFromTime(tournament.roundLength + ":00")) &&
-	   (gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")*2)) {
-	    scoreSet[1].guest++;
-	}
-	if((gameSecondsFromTime(s.time) >= gameSecondsFromTime(tournament.roundLength + ":00")*2) &&
-	   (gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")*3)) {
-	    scoreSet[2].guest++;
+	if(s.code === "RL -") { // no score for failed penalty shot
+	} else {
+	    if(gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")) {
+		scoreSet[0].guest++;
+	    }
+	    if((gameSecondsFromTime(s.time) >= gameSecondsFromTime(tournament.roundLength + ":00")) &&
+	       (gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")*2)) {
+		scoreSet[1].guest++;
+	    }
+	    if((gameSecondsFromTime(s.time) >= gameSecondsFromTime(tournament.roundLength + ":00")*2) &&
+	       (gameSecondsFromTime(s.time) < gameSecondsFromTime(tournament.roundLength + ":00")*3)) {
+		scoreSet[2].guest++;
+	    }
 	}
     });
 
@@ -1541,8 +1548,10 @@ function getPlayerListWithScoresAndPenalties(teamId, game) {
 	var pass = 0;
 	var penalty = 0;
 	game.scores.forEach(function(s) {
-	    if(p.id === s.scorer) { goal++; }
-	    if(p.id === s.passer) { pass++; }
+	    if(s.type !== "RL -") {
+		if(p.id === s.scorer) { goal++; }
+		if(p.id === s.passer) { pass++; }
+	    }
 	});
 	game.penalties.forEach(function(t) {
 	    if(p.id === t.player) { penalty++; }
@@ -1673,9 +1682,13 @@ function createSubResultBody(game) {
 	    passer = getPlayerNameById(s.passer);
 	    row = "Maali</td><td>" + scorer + "</td><td>" + passer;
 	}
-	if(s.type === "RL") {
+	if(s.type === "RL OK") {
 	    scorer = getPlayerNameById(s.scorer);
 	    row = "Rangaistuslaukaus</td><td>" + scorer + "</td><td>";
+	}
+	if(s.type === "RL -") {
+	    scorer = getPlayerNameById(s.scorer);
+	    row = "Epäonnistunut Rangaistuslaukaus</td><td>" + scorer + "</td><td>";
 	}
 	if(s.type === "OM") {
 	    row = "Oma Maali" + "</td><td>" + "</td><td>";
@@ -1690,8 +1703,11 @@ function getGameScoresAsTooltip(scores) {
 	if(s.type === "maali") {
 	    return s.time + " -- Maali: " + getTeamNameById(s.point) + "; score: " + s.scorer.name + "; pass: " + s.passer.name + "&#013;&#013;";
 	}
-	if(s.type === "RL") {
+	if(s.type === "RL OK") {
 	    return s.time + " -- Rangaistuslaukaus: " + getTeamNameById(s.point) + "; score: " + s.scorer.name + "&#013;&#013;";
+	}
+	if(s.type === "RL -") {
+	    return s.time + " -- Epäonnistunut Rangaistuslaukaus: " + getTeamNameById(s.point) + "; score: " + s.scorer.name + "&#013;&#013;";
 	}
 	if(s.type === "OM") {
 	    return s.time + " -- Oma Maali: " + getTeamNameById(s.point) + "&#013;&#013;";
