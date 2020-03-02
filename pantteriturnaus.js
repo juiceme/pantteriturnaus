@@ -37,28 +37,29 @@ function handleApplicationMessage(url, message) {
 	return processGetSingleTournamentForEdit(session, message.data); }
     if(url === "/api/application/savetournamentgamedata") {
 	return processSaveTournamentGameData(session, message.data); }
+    if(url === "/api/application/gettournamentmainhelp") {
+	return processGetTournamentMainHelp(session, message.data); }
+    if(url === "/api/application/getalltournamentsedithelp") {
+	return processGetAllTournamentsEditHelp(session, message.data); }
+    if(url === "/api/application/gettournamentresultspanel") {
+	return processGetTournamentResults(session, message.data); }
+    if(url === "/api/application/gettournamentscoreseditpanel") {
+        return processGetOneTournamentScoresForEdit(session, message.data); }
+    if(url === "/api/application/getmatchscoreseditpanel") {
+	return processGetOneMatchScoresForEdit(session, message.data); }
     
     return { result: fw.restStatusMessage("E_UNIMPLEMENTED") }
     
     
-    if(decryptedMessage.type === "getTournamentDataForShow") {
-	processGetTournamentDataForShow(cookie, decryptedMessage.content); }
-    if(decryptedMessage.type === "getOneTournamentScoresForEdit") {
-        processGetOneTournamentScoresForEdit(cookie, decryptedMessage.content); }
+    
     if(decryptedMessage.type === "updateFinalistTeams") {
 	processUpdateFinalistTeams(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "resetToMain") {
 	processResetToMainState(cookie, decryptedMessage.content); }
-    if(decryptedMessage.type === "getOneMatchScoresForEdit") {
-	processGetOneMatchScoresForEdit(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "saveMatchScores") {
 	processSaveMatchScores(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "saveMatchScoresAndReturn") {
 	processSaveMatchScoresAndReturn(cookie, decryptedMessage.content); }
-    if(decryptedMessage.type === "getTournamentMainHelp") {
-	processGetTournamentMainHelp(cookie, decryptedMessage.content); }
-    if(decryptedMessage.type === "getAllTournamentsEditHelp") {
-	processGetAllTournamentsEditHelp(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "commandGetPlayerList") {
 	processCommandGetPlayerList(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "commandAddPlayerToList") {
@@ -274,7 +275,7 @@ function createTournamentMainData(session) {
     var user = fw.getUserByUsername(session.username);
     var sendable;
     var topButtonList = ui.createTopButtons(session, [ { button: { text: "Help",
-								  callbackMessage: "getTournamentMainHelp" } } ]);
+								   callbackFunction: "postEncrypted('/api/application/gettournamentmainhelp', {}); return false;" } } ]);
     var tournaments = getAllTournamentData().map(function(t) {
 	return { id: t.id, name: t.name, locked: t.locked };
     });
@@ -283,9 +284,8 @@ function createTournamentMainData(session) {
     tournaments.forEach(function(t) {
 	if(!fw.userHasPrivilige("score-edit", user)) { t.locked = true; }
 	items.push( [ [ ui.createUiTextNode("name", t.name) ],
-		      [ ui.createUiMessageButton("Tulokset", "getTournamentDataForShow", t.id,
-						 fw.userHasPrivilige("view", user)) ],
-		      [ ui.createUiMessageButton("Muokkaa", "getOneTournamentScoresForEdit", t.id, !t.locked) ] ] );
+		      [ ui.createUiMessageButton("Tulokset", "/api/application/gettournamentresultspanel", t.id, fw.userHasPrivilige("view", user)) ],
+		      [ ui.createUiMessageButton("Muokkaa", "/api/application/gettournamentscoreseditpanel", t.id, !t.locked) ] ] );
     });
 
     var itemList = { title: "Tournament",
@@ -307,38 +307,32 @@ function createTournamentMainData(session) {
 	     data: fw.encrypt(sendable, session.key) };
 }
 
-function processGetTournamentDataForShow(cookie, data) {
-    var sendable;
-    try {
-	var tournamentId = data.buttonData;
-    } catch(err) {
-	fw.servicelog("Cannot parse tournament id: " + err);
-	return;
-    }
-    fw.servicelog("Client #" + cookie.count + " requests tournament show: " + tournamentId);
-    if(fw.userHasPrivilige("view", cookie.user)) {	
+function processGetTournamentResults(session, data) {
+    var user = fw.getUserByUsername(session.username);
+    if(fw.userHasPrivilige("view", user)) {
+    	var inputData = fw.decrypt(data, session.key).data;
+	var tournamentId = inputData.buttonData;
 	var tournmentWebPage = createPreviewHtmlPage(getTournamentDataById(tournamentId));
-	sendable = { type: "showHtmlPage",
-		     content: tournmentWebPage.toString("ascii") };
-	fw.sendCipherTextToClient(cookie, sendable);
-	fw.servicelog("Sent tournament html view to client");
+	var sendable = { type: "showHtmlPage",
+			 content: tournmentWebPage.toString("utf8") };
+	return { result: fw.restStatusMessage("E_OK"),
+		 message: "Tournament Results",
+		 type: "T_UINEWDOCUMENTWINDOWREQUEST",
+		 data: fw.encrypt(sendable, session.key) };
     } else {
-	fw.servicelog("User " + cookie.user.username + " does not have priviliges to view tournament");
+	fw.servicelog("User " + user.username + " does not have priviliges to view tournament");
     }
 }
 
-function processGetOneTournamentScoresForEdit(cookie, data) {
-    try {
-	var tournamentId = data.buttonData;
-    } catch(err) {
-	fw.servicelog("Cannot parse tournament id: " + err);
-	return;
-    }
-    fw.servicelog("Client #" + cookie.count + " requests tournament scores edit: " + tournamentId);
-    if(fw.userHasPrivilige("score-edit", cookie.user)) {
-	sendOneTournamentForScoresEdit(cookie, getTournamentDataById(tournamentId));
+function processGetOneTournamentScoresForEdit(session, data) {
+    var user = fw.getUserByUsername(session.username);
+    if(fw.userHasPrivilige("score-edit", user)) {
+	var inputData = fw.decrypt(data, session.key).data;
+	var tournamentId = inputData.buttonData;
+	return sendOneTournamentForScoresEdit(session, getTournamentDataById(tournamentId));
     } else {
-	fw.servicelog("User " + cookie.user.username + " does not have priviliges to edit tournament scores");
+	fw.servicelog("User " + user.username + " does not have priviliges to edit tournament scores");
+	return createTournamentMainData(session);
     }
 }
 
@@ -350,7 +344,7 @@ function processGetTournamentsDataForEdit(session, data) {
     if(fw.userHasPrivilige("tournament-edit", user)) {
 	var sendable;
 	var topButtonList = ui.createTopButtons(session, [ { button: { text: "Help",
-								       callbackMessage: "getAllTournamentsEditHelp" } } ]);
+								       callbackFunction: "postEncrypted('/api/application/getalltournamentsedithelp', {}); return false;" } } ]);
 	var items = [];
 	getAllTournamentData().forEach(function(t) {
 	    items.push([ [ ui.createUiTextNode("id", t.id) ],
@@ -1049,9 +1043,8 @@ function updateSingleTeamFromClient(session, teamId, data) {
 
 // UI panel for selecting the game for statistics edit
 
-function sendOneTournamentForScoresEdit(cookie, tournament) {
-    var sendable;
-    var topButtonList = ui.createTopButtons(cookie);
+function sendOneTournamentForScoresEdit(session, tournament) {
+    var topButtonList = ui.createTopButtons(session);
     var games = [];
     var finals = [];
     var finalsFlag = false;
@@ -1063,14 +1056,14 @@ function sendOneTournamentForScoresEdit(cookie, tournament) {
 			   [ ui.createUiTextNode("home", getTeamNameById(t.home)) ],
 			   [ ui.createUiTextNode("guest", getTeamNameById(t.guest)) ],
 			   [ ui.createUiTextNode("result", t.result) ],
-			   [ ui.createUiMessageButton("Muokkaa", "getOneMatchScoresForEdit", 
+			   [ ui.createUiMessageButton("Muokkaa", "/api/application/getmatchscoreseditpanel", 
 							     { id: tournament.id, round: count++ }) ] ] );
 	} else {
 	    games.push( [ [ ui.createUiTextNode("time", t.time) ],
 			  [ ui.createUiTextNode("home", getTeamNameById(t.home)) ],
 			  [ ui.createUiTextNode("guest", getTeamNameById(t.guest)) ],
 			  [ ui.createUiTextNode("result", t.result) ],
-			  [ ui.createUiMessageButton("Muokkaa", "getOneMatchScoresForEdit", 
+			  [ ui.createUiMessageButton("Muokkaa", "/api/application/getmatchscoreseditpanel", 
 							    { id: tournament.id, round: count++ }) ] ] );
 	}
     });
@@ -1096,42 +1089,43 @@ function sendOneTournamentForScoresEdit(cookie, tournament) {
     } else {
 	var frameList = [ { frameType: "fixedListFrame", frame: gamesList } ];
     }
-    var buttonList =  [ { id: 501, text: "OK", callbackMessage: "resetToMain" } ];
-    sendable = { type: "createUiPage",
-		 content: { topButtonList: topButtonList,
-			    frameList: frameList,
-			    buttonList: buttonList } };
-
-    fw.sendCipherTextToClient(cookie, sendable);
-    fw.servicelog("Sent NEW editTournamentScores to client #" + cookie.count);
+    var buttonList =  [ { id: 501,
+			  text: "OK",
+			  callbackFunction: "postEncrypted('/api/window/0', {}); return false;" } ];
+    var sendable = { type: "createUiPage",
+		     content: { topButtonList: topButtonList,
+				frameList: frameList,
+				buttonList: buttonList } };
+    return { result: fw.restStatusMessage("E_OK"),
+	     message: "Edit Team Players",
+	     type: "T_UIWINDOWREQUEST",
+	     data: fw.encrypt(sendable, session.key) };
 }
 
-function processGetOneMatchScoresForEdit(cookie, data) {
-    try {
-	var tournamentId = data.buttonData.id;
-	var tournamentRound = data.buttonData.round;
-    } catch(err) {
-	fw.servicelog("Cannot parse either tournament name or round: " + err);
-	return;
-    }
-    fw.servicelog("Client #" + cookie.count + " requests match scores edit.");
-    if(fw.userHasPrivilige("score-edit", cookie.user)) {
-	sendOneMatchForScoresEdit(cookie, getMatchDataById(tournamentId, tournamentRound));
+function processGetOneMatchScoresForEdit(session, data) {
+    var user = fw.getUserByUsername(session.username);
+    if(fw.userHasPrivilige("score-edit", user)) {
+	var inputData = fw.decrypt(data, session.key).data;
+	var tournamentId = inputData.buttonData.id;
+	var tournamentRound = inputData.buttonData.round;
+	return sendOneMatchForScoresEdit(session, getMatchDataById(tournamentId, tournamentRound));
     } else {
-	fw.servicelog("User " + cookie.user.username + " does not have priviliges to edit match scores");
+	fw.servicelog("User " + user.username + " does not have priviliges to edit match scores");
     }
+    return createTournamentMainData(session);
 }
 
 
 // UI panel for editing the statistics of a single game
 
-function sendOneMatchForScoresEdit(cookie, match) {
-    var sendable;
-    var topButtonList = ui.createTopButtons(cookie);
+function sendOneMatchForScoresEdit(session, match) {
+    var topButtonList = ui.createTopButtons(session);
     var scoreItems = [];
     var penaltyItems = [];
     var frameNumber = 0;
-    cookie.editingMatch =  match.id;
+    session = fw.addSessionData(session.token, match.id);
+    if(!session) { return { result: fw.restStatusMessage("E_INTERNALERROR") } };
+//    cookie.editingMatch =  match.id;
     if(match.isFinalGame) {
 	var teamItems = [ [ [ ui.createUiSelectionList("home", getTournamentTeamList(match.id.id), getTeamNameById(match.home)) ],
 			    [ ui.createUiSelectionList("guest", getTournamentTeamList(match.id.id), getTeamNameById(match.guest)) ],
@@ -1202,16 +1196,16 @@ function sendOneMatchForScoresEdit(cookie, match) {
 	var frameList = [ { frameType: "editListFrame", frame: scoresItemList },
 			  { frameType: "editListFrame", frame: penaltiesItemList } ];
     }
-
-    sendable = { type: "createUiPage",
-		 content: { topButtonList: topButtonList,
-			    frameList: frameList,
-			    buttonList: [ { id: 501, text: "Apply", callbackMessage: "saveMatchScores", data: match.id },
-					  { id: 502, text: "OK",  callbackMessage: "saveMatchScoresAndReturn", data: match.id },
-					  { id: 503, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
-
-    fw.sendCipherTextToClient(cookie, sendable);
-    fw.servicelog("Sent NEW editMatchScores to client #" + cookie.count);
+    var sendable = { type: "createUiPage",
+		     content: { topButtonList: topButtonList,
+				frameList: frameList,
+				buttonList: [ { id: 501, text: "Apply", callbackMessage: "saveMatchScores", data: match.id },
+					      { id: 502, text: "OK",  callbackMessage: "saveMatchScoresAndReturn", data: match.id },
+					      { id: 503, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
+    return { result: fw.restStatusMessage("E_OK"),
+	     message: "Edit Match Scores",
+	     type: "T_UIWINDOWREQUEST",
+	     data: fw.encrypt(sendable, session.key) };
 }
 
 function processUpdateFinalistTeams(cookie, data) {
@@ -1261,7 +1255,7 @@ function processUpdateFinalistTeams(cookie, data) {
 	    createTournamentHtmlPages(getTournamentDataById(tournamentId));
 	    fw.servicelog("Updated tournament database");
 	}
-	sendOneMatchForScoresEdit(cookie, getMatchDataById(tournamentId, tournamentRound));
+	sendOneMatchForScoresEdit(session, getMatchDataById(tournamentId, tournamentRound));
     } else {
 	fw.servicelog("User " + cookie.user.username + " does not have priviliges to update finalist data");
 	createTournamentMainData(cookie);
@@ -1391,7 +1385,7 @@ function processSaveMatchScores(cookie, data) {
 	data.buttonList.forEach(function(b) {
 	    if(b.text === "OK") {
 		updateMatchStatisticsFromClient(cookie, b.data, data);
-		sendOneMatchForScoresEdit(cookie, getMatchDataById(b.data.id, b.data.round));
+		sendOneMatchForScoresEdit(session, getMatchDataById(b.data.id, b.data.round));
 		signalEditingClientsForScoresChange(cookie, b.data.id, b.data.round);
 		return;
 	    }
@@ -1409,6 +1403,7 @@ function processSaveMatchScoresAndReturn(cookie, data) {
 	    if(b.text === "OK") {
 		updateMatchStatisticsFromClient(cookie, b.data, data);
 		signalEditingClientsForScoresChange(cookie, b.data.id, b.data.round);
+//		session = fw.addSessionData(session.token, {});
 		cookie.editingMatch = {};
 		createTournamentMainData(cookie);
 		return;
@@ -1466,6 +1461,7 @@ function updateMatchStatisticsFromClient(cookie, match, matchData) {
 
 function signalEditingClientsForScoresChange(cookie, id, round) {
     fw.getConnectionList().forEach(function(c) {
+//	if(fw.getSessionData(session.token) !== undefined) {
 	if(c.editingMatch !== undefined) {
 	    if((c.count !== cookie.count) &&
 	       (c.editingMatch.id === id ) &&
@@ -2003,24 +1999,24 @@ function extractMatchStatisticsFromInputData(isFinalGame, teams, data) {
 
 // help screens for panels
 
-function processGetTournamentMainHelp(cookie, data) {
-    fw.servicelog("Client #" + cookie.count + " requests main tournament help page");
+function processGetTournamentMainHelp(session, data) {
     var helpWebPage = fs.readFileSync("htmlpages/TournamentMainHelp.html");
-
     sendable = { type: "showHtmlPage",
 		 content: helpWebPage.toString("utf8") };
-    fw.sendCipherTextToClient(cookie, sendable);
-    fw.servicelog("Sent html page to client");
+    return { result: fw.restStatusMessage("E_OK"),
+	     message: "Show help message",
+	     type: "T_UINEWDOCUMENTWINDOWREQUEST",
+	     data: fw.encrypt(sendable, session.key) };
 }
 
-function processGetAllTournamentsEditHelp(cookie, data) {
-    fw.servicelog("Client #" + cookie.count + " requests tournament data edit help page");
+function processGetAllTournamentsEditHelp(session, data) {
     var helpWebPage = fs.readFileSync("htmlpages/AllTournamentsEditHelp.html");
-
     sendable = { type: "showHtmlPage",
 		 content: helpWebPage.toString("utf8") };
-    fw.sendCipherTextToClient(cookie, sendable);
-    fw.servicelog("Sent html page to client");
+    return { result: fw.restStatusMessage("E_OK"),
+	     message: "Show help message",
+	     type: "T_UINEWDOCUMENTWINDOWREQUEST",
+	     data: fw.encrypt(sendable, session.key) };
 }
 
 
