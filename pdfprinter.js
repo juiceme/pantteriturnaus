@@ -381,7 +381,7 @@ function drawPanels(doc)
     text(doc, "Rang. min.", 5, 482, 533);
     text(doc, "yhteensä", 5, 482, 538);
     text(doc, "TH1", 7, 87, 532);
-    text(doc, "TH2", 7, 87, 540); 
+    text(doc, "TH2", 7, 87, 540);
     text(doc, "TH3", 7, 87, 548);
     text(doc, "TH4", 7, 257, 532);
     text(doc, "TH5", 7, 257, 540);

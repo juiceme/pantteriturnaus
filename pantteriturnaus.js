@@ -318,7 +318,7 @@ function createTopButtonList(cookie) {
 // Main tournament UI panel, list of available tournaments
 
 function processResetToMainState(session) {
-    // this shows up the first UI panel when uses login succeeds or other panels send "OK" / "Cancel" 
+    // this shows up the first UI panel when uses login succeeds or other panels send "OK" / "Cancel"
     fw.servicelog("User session reset to main state");
     return createTournamentMainData(session);
 }
@@ -403,7 +403,7 @@ function processGetTournamentsDataForEdit(session, data) {
 	    items.push([ [ ui.createUiTextNode("id", t.id) ],
 			 [ ui.createUiInputField("name", t.name, 20, false) ],
 			 [ ui.createUiInputField("outputfile", t.outputFile, 30, false) ],
-			 [ ui.createUiCheckBox("locked", t.locked, "locked") ], 
+			 [ ui.createUiCheckBox("locked", t.locked, "locked") ],
 			 [ ui.createUiMessageButton("Muokkaa",  "/api/application/getsingletournamenteditpanel", t.id) ] ]);
 	});
 	var itemList = { title: "Tournaments",
@@ -898,7 +898,7 @@ function processGetTeamsDataForEdit(session, data) {
 	    frameList = [ { frameType: "editListFrame", frame: itemList } ];
 	    buttonList = [ { id: 501,
 			     text: "OK",
-			     callbackUrl: "/api/application/saveallteamdata" },			   
+			     callbackUrl: "/api/application/saveallteamdata" },
 			   { id: 502,
 			     text: "Cancel",
 			     callbackFunction: "postEncrypted('/api/window/0', {}); return false;" } ];
@@ -923,7 +923,7 @@ function processGetTeamsDataForEdit(session, data) {
 			      { frameType: "editListFrame", frame: newItemList } ];
 	    var buttonList = [ { id: 501,
 				 text: "OK",
-				 callbackUrl: "/api/application/saveallteamdata" },			   
+				 callbackUrl: "/api/application/saveallteamdata" },
 			       { id: 502,
 				 text: "Cancel",
 				 callbackFunction: "postEncrypted('/api/window/0', {}); return false;" } ];
@@ -1109,14 +1109,14 @@ function sendOneTournamentForScoresEdit(session, tournament) {
 			   [ ui.createUiTextNode("home", getTeamNameById(t.home)) ],
 			   [ ui.createUiTextNode("guest", getTeamNameById(t.guest)) ],
 			   [ ui.createUiTextNode("result", t.result) ],
-			   [ ui.createUiMessageButton("Muokkaa", "/api/application/getmatchscoreseditpanel", 
+			   [ ui.createUiMessageButton("Muokkaa", "/api/application/getmatchscoreseditpanel",
 							     { id: tournament.id, round: count++ }) ] ] );
 	} else {
 	    games.push( [ [ ui.createUiTextNode("time", t.time) ],
 			  [ ui.createUiTextNode("home", getTeamNameById(t.home)) ],
 			  [ ui.createUiTextNode("guest", getTeamNameById(t.guest)) ],
 			  [ ui.createUiTextNode("result", t.result) ],
-			  [ ui.createUiMessageButton("Muokkaa", "/api/application/getmatchscoreseditpanel", 
+			  [ ui.createUiMessageButton("Muokkaa", "/api/application/getmatchscoreseditpanel",
 							    { id: tournament.id, round: count++ }) ] ] );
 	}
     });
@@ -1365,12 +1365,12 @@ function createMatchPlayer(match, id) {
     datastorage.read("teams").teams.forEach(function(t) {
 	if((t.id === match.home) || (t.id === match.guest)) {
 	    t.players.forEach(function(p) {
-		if(p === id) { team = t.name; }		
+		if(p === id) { team = t.name; }
 	    });
 	}
     });
     datastorage.read("players").players.forEach(function(p) {
-	if(id === p.id) { matchPlayer = team + " | " + p.name + " (" + p.number + ")"; }	
+	if(id === p.id) { matchPlayer = team + " | " + p.name + " (" + p.number + ")"; }
     });
     return matchPlayer;
 }
@@ -1582,7 +1582,7 @@ function createPdfResultsPage(filename, game, tournament) {
 		  guest:
 		  { name: getTeamNameById(game.guest),
 		    players: getPlayerListWithScoresAndPenalties(game.guest, game) } };
-				    
+
     var results = { home: getTeamScoresAndPenalties(game.home, game),
 		    guest: getTeamScoresAndPenalties(game.guest, game) };
 
@@ -2782,7 +2782,7 @@ function initializeDataStorages() {
     } else {
 	datastorage.read("tournaments").tournaments.forEach(function(t) {
 	    datastorage.initialize(t, []);
-	});	
+	});
     }
 }
 
