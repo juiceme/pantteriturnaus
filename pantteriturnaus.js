@@ -11,8 +11,8 @@ var databaseVersion = 7;
 
 function handleApplicationMessage(url, message) {
 
-    console.log("URL:  " + url)
-    console.log("DATA: " + JSON.stringify(message))
+//    console.log("URL:  " + url)
+//    console.log("DATA: " + JSON.stringify(message))
 
     var session = fw.refreshSessionByToken(message.token, message.data);
     if(!session) { return {result: fw.restStatusMessage("E_VERIFYSESSION")}; }
@@ -47,19 +47,21 @@ function handleApplicationMessage(url, message) {
         return processGetOneTournamentScoresForEdit(session, message.data); }
     if(url === "/api/application/getmatchscoreseditpanel") {
 	return processGetOneMatchScoresForEdit(session, message.data); }
-    
+    if(url === "/api/application/savematchscores") {
+	return processSaveMatchScores(session, message.data); }
+    if(url === "/api/application/savematchscoresandreturn") {
+	return processSaveMatchScoresAndReturn(session, message.data); }
+
+    console.log("  ----------- UNHANDLED CASE IN MESSAGE LOOP ")
+
     return { result: fw.restStatusMessage("E_UNIMPLEMENTED") }
-    
-    
-    
+
+
+
     if(decryptedMessage.type === "updateFinalistTeams") {
 	processUpdateFinalistTeams(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "resetToMain") {
 	processResetToMainState(cookie, decryptedMessage.content); }
-    if(decryptedMessage.type === "saveMatchScores") {
-	processSaveMatchScores(cookie, decryptedMessage.content); }
-    if(decryptedMessage.type === "saveMatchScoresAndReturn") {
-	processSaveMatchScoresAndReturn(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "commandGetPlayerList") {
 	processCommandGetPlayerList(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "commandAddPlayerToList") {
@@ -76,6 +78,56 @@ function handleApplicationMessage(url, message) {
 	processCommandAddTeamPlayer(cookie, decryptedMessage.content); }
     if(decryptedMessage.type === "commandDeleteTeamPlayer") {
 	processCommandDeleteTeamPlayer(cookie, decryptedMessage.content); }
+}
+
+var scoresRefreshList = []
+
+function handleApplicationPoll(url, message) {
+    var session = fw.refreshSessionByToken(message.token, message.data);
+    if(!session) { return {result: fw.restStatusMessage("E_VERIFYSESSION")}; }
+    var data = fw.decrypt(message.data, session.key);
+    var ret =  {result: fw.restStatusMessage("E_OK")};
+    var sessionData = fw.getSessionData(session.token);
+    if(Object.keys(sessionData).length === 0) {
+	return ret;
+    }
+    if(scoresRefreshList.length !== 0) {
+	newScoresRefreshList = [];
+	scoresRefreshList.forEach(function(r) {
+	    if(r.token !== session.token &&
+	       r.id === sessionData.id &&
+	       r.round === sessionData.round ) {
+		ret = sendOneMatchForScoresEdit(session, getMatchDataById(r.id, r.round))
+	    } else {
+		newScoresRefreshList.push(r);
+	    }
+	});
+	scoresRefreshList = newScoresRefreshList;
+    }
+    return ret;
+}
+
+function clearEditingSession(session) {
+    var sessionData = fw.getSessionData(session.token);
+    session = fw.addSessionData(session.token, {});
+    if(datastorage.read("session").session.map(function(s) {
+	if(s.data.id === sessionData.id && s.data.round === sessionData.round) { return true; }
+    }).filter(function(f){return f;})[0] === true) {
+	return;
+    } else {
+	scoresRefreshList = scoresRefreshList.map(function(s) {
+	    if(s.token !== session.token) { return s; }
+	}).filter(function(f){return f;});
+    }
+}
+
+function signalEditingClientsForScoresChange(session, id, round) {
+    scoresRefreshList = scoresRefreshList.map(function(s) {
+	if(s.token !== session.token) { return s; }
+    }).filter(function(f){return f;});
+    scoresRefreshList.push({ token: session.token,
+			     id: id,
+			     round: round });
 }
 
 
@@ -273,6 +325,7 @@ function processResetToMainState(session) {
 
 function createTournamentMainData(session) {
     var user = fw.getUserByUsername(session.username);
+    clearEditingSession(session);
     var sendable;
     var topButtonList = ui.createTopButtons(session, [ { button: { text: "Help",
 								   callbackFunction: "postEncrypted('/api/application/gettournamentmainhelp', {}); return false;" } } ]);
@@ -1199,9 +1252,17 @@ function sendOneMatchForScoresEdit(session, match) {
     var sendable = { type: "createUiPage",
 		     content: { topButtonList: topButtonList,
 				frameList: frameList,
-				buttonList: [ { id: 501, text: "Apply", callbackMessage: "saveMatchScores", data: match.id },
-					      { id: 502, text: "OK",  callbackMessage: "saveMatchScoresAndReturn", data: match.id },
-					      { id: 503, text: "Cancel",  callbackMessage: "resetToMain" } ] } };
+				buttonList: [ { id: 501,
+						text: "Apply",
+						callbackUrl: "/api/application/savematchscores",
+						data: match.id },
+					      { id: 502,
+						text: "OK",
+						callbackUrl: "/api/application/savematchscoresandreturn",
+						data: match.id },
+					      { id: 503,
+						text: "Cancel",
+						callbackFunction: "postEncrypted('/api/window/0', {}); return false;" } ] } };
     return { result: fw.restStatusMessage("E_OK"),
 	     message: "Edit Match Scores",
 	     type: "T_UIWINDOWREQUEST",
@@ -1379,43 +1440,49 @@ function createPenaltyCodes() {
 	     "41 VÄÄRÄ VAIHTO" ];
 }
 
-function processSaveMatchScores(cookie, data) {
-    fw.servicelog("Client #" + cookie.count + " requests match scores saving.");
-    if(fw.userHasPrivilige("score-edit", cookie.user)) {
-	data.buttonList.forEach(function(b) {
+function processSaveMatchScores(session, data) {
+    var user = fw.getUserByUsername(session.username);
+    if(fw.userHasPrivilige("score-edit", user)) {
+	var inputData = fw.decrypt(data, session.key).data;
+	var ret = {}
+	inputData.buttonList.forEach(function(b) {
 	    if(b.text === "OK") {
-		updateMatchStatisticsFromClient(cookie, b.data, data);
-		sendOneMatchForScoresEdit(session, getMatchDataById(b.data.id, b.data.round));
-		signalEditingClientsForScoresChange(cookie, b.data.id, b.data.round);
-		return;
+		if(!updateMatchStatisticsFromClient(session, b.data, inputData)) {
+		    ret = createTournamentMainData(session);
+		} else {
+		    signalEditingClientsForScoresChange(session, b.data.id, b.data.round);
+		    ret = sendOneMatchForScoresEdit(session, getMatchDataById(b.data.id, b.data.round));
+		}
 	    }
 	});
+	return ret;
     } else {
-	fw.servicelog("User " + cookie.user.username + " does not have priviliges to edit match scores");
-	createTournamentMainData(cookie);
+	fw.servicelog("User " + user.username + " does not have priviliges to edit match scores");
+	return createTournamentMainData(session);
     }
 }
 
-function processSaveMatchScoresAndReturn(cookie, data) {
-    fw.servicelog("Client #" + cookie.count + " requests match scores saving and return to main screen.");
-    if(fw.userHasPrivilige("score-edit", cookie.user)) {
-	data.buttonList.forEach(function(b) {
+function processSaveMatchScoresAndReturn(session, data) {
+    var user = fw.getUserByUsername(session.username);
+    if(fw.userHasPrivilige("score-edit", user)) {
+	var inputData = fw.decrypt(data, session.key).data;
+	var ret = {}
+	inputData.buttonList.forEach(function(b) {
 	    if(b.text === "OK") {
-		updateMatchStatisticsFromClient(cookie, b.data, data);
-		signalEditingClientsForScoresChange(cookie, b.data.id, b.data.round);
-//		session = fw.addSessionData(session.token, {});
-		cookie.editingMatch = {};
-		createTournamentMainData(cookie);
-		return;
+		updateMatchStatisticsFromClient(session, b.data, inputData)
+		signalEditingClientsForScoresChange(session, b.data.id, b.data.round);
+//		cookie.editingMatch = {};
+		ret = createTournamentMainData(session);
 	    }
 	});
+	return ret;
     } else {
-	fw.servicelog("User " + cookie.user.username + " does not have priviliges to edit match scores");
+	fw.servicelog("User " + user.username + " does not have priviliges to edit match scores");
+	return createTournamentMainData(session);
     }
-    createTournamentMainData(cookie);
 }
 
-function updateMatchStatisticsFromClient(cookie, match, matchData) {
+function updateMatchStatisticsFromClient(session, match, matchData) {
     var tournament = getTournamentDataById(match.id);
     var newGames = [];
     tournament.games.forEach(function(g) {
@@ -1424,8 +1491,8 @@ function updateMatchStatisticsFromClient(cookie, match, matchData) {
 	} else {
 	    var newStatistics = extractMatchStatisticsFromInputData(g.isFinalGame, [g.home, g.guest], matchData);
 	    if(newStatistics === null) {
-		createTournamentMainData(cookie);
-		return;
+		fw.servicelog("Cannot extract match data from input")
+		return false;
 	    }
 	    newGames.push({ round: match.round,
 			    home: g.home,
@@ -1455,22 +1522,8 @@ function updateMatchStatisticsFromClient(cookie, match, matchData) {
 	fw.servicelog("Updating tournament database failed");
     } else {
 	createTournamentHtmlPages(getTournamentDataById(tournament.id));
-	fw.servicelog("Updated tournament database");
     }
-}
-
-function signalEditingClientsForScoresChange(cookie, id, round) {
-    fw.getConnectionList().forEach(function(c) {
-//	if(fw.getSessionData(session.token) !== undefined) {
-	if(c.editingMatch !== undefined) {
-	    if((c.count !== cookie.count) &&
-	       (c.editingMatch.id === id ) &&
-	       (c.editingMatch.round === round)) {
-		fw.servicelog("Sending refresh message to client #" + c.count);
-		sendOneMatchForScoresEdit(c, getMatchDataById(id, round));
-	    }
-	}
-    });
+    return true;
 }
 
 
@@ -2740,6 +2793,7 @@ fw.setCallback("datastorageRead", datastorage.read);
 fw.setCallback("datastorageWrite", datastorage.write);
 fw.setCallback("datastorageInitialize", datastorage.initialize);
 fw.setCallback("handleApplicationMessage", handleApplicationMessage);
+fw.setCallback("handleApplicationPoll", handleApplicationPoll);
 fw.setCallback("processResetToMainState", processResetToMainState);
 fw.setCallback("createAdminPanelUserPriviliges", createAdminPanelUserPriviliges);
 fw.setCallback("createDefaultPriviliges", createDefaultPriviliges);
